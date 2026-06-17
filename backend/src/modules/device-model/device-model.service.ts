@@ -5,6 +5,8 @@ import { CreateDeviceModelDto, UpdateDeviceModelDto } from './device-model.dto'
 export const createDeviceModel = async (dto: CreateDeviceModelDto): Promise<DeviceModel> => {
   return repository.createDeviceModel({
     name: dto.name,
+    vendor: dto.vendor,
+    model: dto.model,
     protocol: dto.protocol,
     description: dto.description,
     points: dto.points

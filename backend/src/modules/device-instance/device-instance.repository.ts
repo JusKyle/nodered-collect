@@ -6,7 +6,7 @@ export const createDeviceInstance = async (data: {
   modelId: string
   gatewayId: string
   nodeId: string
-  config?: any
+  config?: object
 }): Promise<DeviceInstance> => {
   return prisma.deviceInstance.create({ data })
 }
@@ -17,7 +17,7 @@ export const batchCreateDeviceInstances = async (
     modelId: string
     gatewayId: string
     nodeId: string
-    config?: any
+    config?: object
   }>
 ): Promise<DeviceInstance[]> => {
   return prisma.$transaction(data.map((item) => prisma.deviceInstance.create({ data: item })))
@@ -40,7 +40,7 @@ export const getDeviceInstancesByGatewayId = async (gatewayId: string): Promise<
 
 export const updateDeviceInstance = async (
   id: string,
-  data: Partial<DeviceInstance>
+  data: { name?: string; modelId?: string; gatewayId?: string; nodeId?: string; config?: object; status?: DeviceStatus }
 ): Promise<DeviceInstance> => {
   return prisma.deviceInstance.update({ where: { id }, data })
 }

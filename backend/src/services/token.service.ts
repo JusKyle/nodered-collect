@@ -1,13 +1,20 @@
-import jwt from 'jsonwebtoken'
+import jwt, { SignOptions } from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import { env } from '../config/env'
 
 export const generateToken = (payload: object): string => {
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN })
+  const options: SignOptions = { expiresIn: '24h' }
+  return jwt.sign(payload, env.JWT_SECRET, options)
 }
 
-export const verifyToken = (token: string): any => {
-  return jwt.verify(token, env.JWT_SECRET)
+export interface TokenPayload {
+  gatewayId?: string
+  [key: string]: unknown
+}
+
+export const verifyToken = (token: string): TokenPayload => {
+  const decoded = jwt.verify(token, env.JWT_SECRET) as TokenPayload
+  return decoded
 }
 
 export const hashPassword = async (password: string): Promise<string> => {

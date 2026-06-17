@@ -3,9 +3,11 @@ import { DeviceModel } from '@prisma/client'
 
 export const createDeviceModel = async (data: {
   name: string
+  vendor: string
+  model: string
   protocol: string
   description?: string
-  points: any[]
+  points: object[]
 }): Promise<DeviceModel> => {
   return prisma.deviceModel.create({ data })
 }
@@ -20,7 +22,7 @@ export const getDeviceModelById = async (id: string): Promise<DeviceModel | null
 
 export const updateDeviceModel = async (
   id: string,
-  data: Partial<DeviceModel>
+  data: { name?: string; vendor?: string; model?: string; protocol?: string; description?: string; points?: object[] }
 ): Promise<DeviceModel> => {
   return prisma.deviceModel.update({ where: { id }, data })
 }

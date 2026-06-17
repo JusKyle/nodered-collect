@@ -33,15 +33,17 @@ enum GatewayStatus {
 model DeviceModel {
   id          String          @id @default(cuid())
   name        String
+  vendor      String
+  model       String
   protocol    String
   description String?
-  points      Json
+  points      Json            @default("[]")
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
   deviceInstances DeviceInstance[]
 
-  @@unique([name, protocol])
+  @@unique([name, vendor, model])
 }
 
 model DeviceInstance {
@@ -50,7 +52,7 @@ model DeviceInstance {
   modelId         String
   gatewayId       String
   nodeId          String
-  config          Json
+  config          Json?
   status          DeviceStatus  @default(OFFLINE)
   lastSyncTime    DateTime?
   createdAt       DateTime      @default(now())
