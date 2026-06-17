@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Gateway {
+  id            String         @id @default(cuid())
+  name          String
+  address       String
+  port          Int            @default(1880)
+  adminToken    String
+  status        GatewayStatus  @default(OFFLINE)
+  lastHeartbeat DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  deviceInstances DeviceInstance[]
+  syncRecords     SyncRecord[]
+
+  @@unique([address, port])
+}
+
+enum GatewayStatus {
+  ONLINE
+  OFFLINE
+  ERROR
+}
+
+model DeviceModel {
+  id          String          @id @default(cuid())
+  name        String
+  protocol    String
+  description String?
+  points      Json
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  deviceInstances DeviceInstance[]
+
+  @@unique([name, protocol])
+}
+
+model DeviceInstance {
+  id              String         @id @default(cuid())
+  name            String
+  modelId         String
+  gatewayId       String
+  nodeId          String
+  config          Json
+  status          DeviceStatus  @default(OFFLINE)
+  lastSyncTime    DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  model           DeviceModel   @relation(fields: [modelId], references: [id])
+  gateway         Gateway       @relation(fields: [gatewayId], references: [id])
+  syncRecords     SyncRecord[]
+
+  @@unique([gatewayId, nodeId])
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  SYNCING
+  ERROR
+}
+
+model SyncRecord {
+  id              String          @id @default(cuid())
+  type            SyncType
+  gatewayId       String
+  deviceInstanceId String?
+  status          SyncStatus
+  message         String?
+  payload         Json?
+  createdAt       DateTime       @default(now())
+
+  gateway         Gateway        @relation(fields: [gatewayId], references: [id])
+  deviceInstance  DeviceInstance? @relation(fields: [deviceInstanceId], references: [id])
+}
+
+enum SyncType {
+  DEPLOY
+  HEARTBEAT
+  CONFIG_SYNC
+  DATA_UPLOAD
+}
+
+enum SyncStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model RegistrationCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  gatewayName String
+  expiresAt   DateTime
+  used        Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+}

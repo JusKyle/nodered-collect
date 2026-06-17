@@ -1,0 +1,34 @@
+<script type="text/javascript">
+  RED.nodes.registerType('device-manager', {
+    category: 'collecting',
+    color: '#3b82f6',
+    defaults: {
+      name: { value: '' },
+      platformUrl: { value: 'http://localhost:3000/api' },
+      registrationCode: { value: '' }
+    },
+    inputs: 0,
+    outputs: 0,
+    icon: 'hardware.svg',
+    label: function () {
+      return this.name || 'Device Manager'
+    },
+    oneditprepare: function () {
+    }
+  })
+</script>
+
+<script type="text/html" data-template-name="device-manager">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Device Manager">
+  </div>
+  <div class="form-row">
+    <label for="node-input-platformUrl"><i class="fa fa-globe"></i> Platform URL</label>
+    <input type="text" id="node-input-platformUrl" placeholder="http://localhost:3000/api">
+  </div>
+  <div class="form-row">
+    <label for="node-input-registrationCode"><i class="fa fa-key"></i> Registration Code</label>
+    <input type="text" id="node-input-registrationCode" placeholder="Enter registration code">
+  </div>
+</script>

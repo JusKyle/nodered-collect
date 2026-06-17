@@ -1,0 +1,31 @@
+{
+  "name": "node-red-contrib-collecting-system",
+  "version": "1.0.0",
+  "description": "Node-RED plugin for collecting system",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest"
+  },
+  "keywords": ["node-red", "iot", "collecting", "gateway"],
+  "author": "",
+  "license": "MIT",
+  "node-red": {
+    "nodes": {
+      "device-manager": "dist/nodes/device-manager/device-manager.js",
+      "device-instance": "dist/nodes/device-instance/device-instance.js",
+      "data-output": "dist/nodes/data-output/data-output.js"
+    }
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "mqtt": "^5.0.0",
+    "sqlite3": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/sqlite3": "^3.1.8",
+    "typescript": "^5.0.0"
+  }
+}
