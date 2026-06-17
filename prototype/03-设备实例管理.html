@@ -17,54 +17,43 @@
 </head>
 <body class="bg-gray-50 text-gray-800">
 
-  <header class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-30 h-14 flex items-center px-6">
-    <div class="flex items-center gap-2">
-      <a href="01-边缘网关管理.html" class="flex items-center gap-2">
-        <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-          <i data-lucide="network" class="w-5 h-5 text-white"></i>
-        </div>
-        <span class="font-semibold text-lg text-gray-900">采集系统管理平台</span>
-      </a>
+  <!-- 左侧导航 -->
+  <aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-gray-200 z-20 flex flex-col">
+    <div class="flex items-center gap-2 px-4 py-4 border-b border-gray-200">
+      <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+        <i data-lucide="network" class="w-5 h-5 text-white"></i>
+      </div>
+      <span class="font-semibold text-lg text-gray-900">采集系统管理平台</span>
     </div>
-    <nav class="ml-12 flex items-center gap-1">
-      <a class="px-3 py-1.5 text-sm rounded-md text-gray-600 hover:bg-gray-50" href="01-边缘网关管理.html">边缘网关</a>
-      <a class="px-3 py-1.5 text-sm rounded-md text-gray-600 hover:bg-gray-50" href="02-设备模型管理.html">设备模型</a>
-      <a class="px-3 py-1.5 text-sm rounded-md bg-blue-50 text-blue-700 font-medium" href="03-设备实例管理.html">设备实例</a>
-      <a class="px-3 py-1.5 text-sm rounded-md text-gray-600 hover:bg-gray-50" href="04-配置下发与同步.html">配置下发</a>
+    <nav class="flex-1 overflow-y-auto pt-4">
+      <a class="flex items-center gap-2 px-4 py-3 text-sm text-gray-600 hover:bg-gray-50" href="01-边缘网关管理.html">
+        <i data-lucide="server" class="w-4 h-4"></i>边缘网关管理
+      </a>
+      <a class="flex items-center gap-2 px-4 py-3 text-sm text-gray-600 hover:bg-gray-50" href="02-设备模型管理.html">
+        <i data-lucide="layout-template" class="w-4 h-4"></i>设备模型管理
+      </a>
+      <a class="flex items-center gap-2 px-4 py-3 text-sm bg-blue-50 text-blue-700 border-r-2 border-blue-600 font-medium" href="03-设备实例管理.html">
+        <i data-lucide="cpu" class="w-4 h-4"></i>设备实例管理
+      </a>
+      <a class="flex items-center gap-2 px-4 py-3 text-sm text-gray-600 hover:bg-gray-50" href="04-配置下发与同步.html">
+        <i data-lucide="send" class="w-4 h-4"></i>配置下发与同步
+      </a>
     </nav>
-    <div class="ml-auto flex items-center gap-4">
-      <button class="p-1.5 hover:bg-gray-100 rounded-md"><i data-lucide="bell" class="w-4 h-4 text-gray-600"></i></button>
-      <div class="flex items-center gap-2 pl-4 border-l border-gray-200">
-        <div class="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-700">运</div>
-        <span class="text-sm text-gray-700">运维人员</span>
+    <div class="px-4 py-4 border-t border-gray-200">
+      <div class="flex items-center gap-2">
+        <button class="p-1.5 hover:bg-gray-100 rounded-md">
+          <i data-lucide="bell" class="w-4 h-4 text-gray-600"></i>
+        </button>
+        <div class="flex items-center gap-2 pl-4 border-l border-gray-200">
+          <div class="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-700">运</div>
+          <span class="text-sm text-gray-700">运维人员</span>
+        </div>
       </div>
     </div>
-  </header>
-
-  <!-- 左侧菜单 -->
-  <aside class="fixed left-0 top-14 bottom-0 w-56 bg-white border-r border-gray-200 z-20 pt-4">
-    <div class="px-4 mb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">网关管理</div>
-    <a class="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50" href="01-边缘网关管理.html">
-      <i data-lucide="server" class="w-4 h-4"></i>边缘网关列表
-    </a>
-    <a class="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50" href="04-配置下发与同步.html">
-      <i data-lucide="list-checks" class="w-4 h-4"></i>下发日志
-    </a>
-    <div class="px-4 mt-6 mb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">数据建模</div>
-    <a class="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50" href="02-设备模型管理.html">
-      <i data-lucide="layout-template" class="w-4 h-4"></i>所有模型
-    </a>
-    <div class="px-4 mt-6 mb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">设备实例</div>
-    <a class="flex items-center gap-2 px-4 py-2 text-sm bg-blue-50 text-blue-700 border-r-2 border-blue-600 font-medium" href="03-设备实例管理.html">
-      <i data-lucide="cpu" class="w-4 h-4"></i>所有实例
-    </a>
-    <div class="px-4 mt-6 mb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">配置下发</div>
-    <a class="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50" href="04-配置下发与同步.html">
-      <i data-lucide="send" class="w-4 h-4"></i>下发管理
-    </a>
   </aside>
 
-  <main class="ml-56 mt-14 p-6">
+  <!-- 主内容区 -->
+  <main class="ml-56 p-6 min-h-screen">
     <div class="flex items-center justify-between mb-5">
       <div>
         <h1 class="text-2xl font-semibold text-gray-900">设备实例</h1>
