@@ -1,0 +1,39 @@
+<script type="text/javascript">
+  RED.nodes.registerType('data-output', {
+    category: 'collecting',
+    color: '#8b5cf6',
+    defaults: {
+      name: { value: '' },
+      mqttHost: { value: 'localhost' },
+      mqttPort: { value: 1883 },
+      topic: { value: 'collecting/data/#' }
+    },
+    inputs: 1,
+    outputs: 0,
+    icon: 'send.svg',
+    label: function () {
+      return this.name || 'Data Output'
+    },
+    oneditprepare: function () {
+    }
+  })
+</script>
+
+<script type="text/html" data-template-name="data-output">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Data Output">
+  </div>
+  <div class="form-row">
+    <label for="node-input-mqttHost"><i class="fa fa-server"></i> MQTT Host</label>
+    <input type="text" id="node-input-mqttHost" placeholder="localhost">
+  </div>
+  <div class="form-row">
+    <label for="node-input-mqttPort"><i class="fa fa-port"></i> MQTT Port</label>
+    <input type="number" id="node-input-mqttPort" value="1883">
+  </div>
+  <div class="form-row">
+    <label for="node-input-topic"><i class="fa fa-hashtag"></i> Topic</label>
+    <input type="text" id="node-input-topic" placeholder="collecting/data/#">
+  </div>
+</script>

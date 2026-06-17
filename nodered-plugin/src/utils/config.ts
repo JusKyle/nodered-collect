@@ -1,0 +1,3 @@
+export const DEFAULT_PLATFORM_URL = 'http://localhost:3000/api'
+export const DEFAULT_HEARTBEAT_INTERVAL = 30000
+export const DEFAULT_CONFIG_SYNC_INTERVAL = 60000

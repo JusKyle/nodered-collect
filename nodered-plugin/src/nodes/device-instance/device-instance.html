@@ -1,0 +1,49 @@
+<script type="text/javascript">
+  RED.nodes.registerType('device-instance', {
+    category: 'collecting',
+    color: '#10b981',
+    defaults: {
+      name: { value: '' },
+      deviceManager: { type: 'device-manager', required: true },
+      deviceId: { value: '' },
+      modelId: { value: '' },
+      nodeId: { value: '' },
+      config: { value: '{}' }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'device.svg',
+    label: function () {
+      return this.name || 'Device Instance'
+    },
+    oneditprepare: function () {
+    }
+  })
+</script>
+
+<script type="text/html" data-template-name="device-instance">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Device Instance">
+  </div>
+  <div class="form-row">
+    <label for="node-input-deviceManager"><i class="fa fa-cog"></i> Device Manager</label>
+    <input type="text" id="node-input-deviceManager" data-property-type="device-manager">
+  </div>
+  <div class="form-row">
+    <label for="node-input-deviceId"><i class="fa fa-id-card"></i> Device ID</label>
+    <input type="text" id="node-input-deviceId" placeholder="Device ID">
+  </div>
+  <div class="form-row">
+    <label for="node-input-modelId"><i class="fa fa-model"></i> Model ID</label>
+    <input type="text" id="node-input-modelId" placeholder="Model ID">
+  </div>
+  <div class="form-row">
+    <label for="node-input-nodeId"><i class="fa fa-network-wired"></i> Node ID</label>
+    <input type="text" id="node-input-nodeId" placeholder="Node ID">
+  </div>
+  <div class="form-row">
+    <label for="node-input-config"><i class="fa fa-file-code"></i> Config (JSON)</label>
+    <textarea id="node-input-config" rows="4" placeholder="{}"></textarea>
+  </div>
+</script>
