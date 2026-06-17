@@ -1,5 +1,5 @@
 import api from './axios'
-import type { Gateway } from '../types'
+import type { Gateway, RegistrationCode } from '../types'
 
 export const getAllGateways = async (): Promise<Gateway[]> => {
   const response = await api.get('/gateways')
@@ -40,5 +40,13 @@ export const testConnection = async (data: {
   adminToken: string
 }): Promise<{ success: boolean }> => {
   const response = await api.post('/gateways/test-connection', data)
+  return response.data
+}
+
+export const generateRegistrationCode = async (data: {
+  gatewayName: string
+  expiresIn: number
+}): Promise<RegistrationCode> => {
+  const response = await api.post('/registration/generate', data)
   return response.data
 }

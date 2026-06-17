@@ -4,6 +4,7 @@ import DataTable from '../../components/DataTable'
 import StatusBadge from '../../components/StatusBadge'
 import GatewayCreateModal from './GatewayCreateModal'
 import GatewayEditModal from './GatewayEditModal'
+import RegistrationCodeModal from './RegistrationCodeModal'
 import type { Gateway } from '../../types'
 
 function GatewayList() {
@@ -11,6 +12,7 @@ function GatewayList() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isRegistrationCodeModalOpen, setIsRegistrationCodeModalOpen] = useState(false)
   const [selectedGateway, setSelectedGateway] = useState<Gateway | null>(null)
 
   useEffect(() => {
@@ -94,7 +96,10 @@ function GatewayList() {
           >
             新建网关
           </button>
-          <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+          <button
+            onClick={() => setIsRegistrationCodeModalOpen(true)}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          >
             生成注册码
           </button>
         </div>
@@ -119,6 +124,11 @@ function GatewayList() {
           setSelectedGateway(null)
         }}
         gateway={selectedGateway}
+      />
+
+      <RegistrationCodeModal
+        isOpen={isRegistrationCodeModalOpen}
+        onClose={() => setIsRegistrationCodeModalOpen(false)}
       />
     </div>
   )
