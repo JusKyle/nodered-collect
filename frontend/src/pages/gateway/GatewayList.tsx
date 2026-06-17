@@ -3,11 +3,15 @@ import { useGatewayStore } from '../../stores/gateway.store'
 import DataTable from '../../components/DataTable'
 import StatusBadge from '../../components/StatusBadge'
 import GatewayCreateModal from './GatewayCreateModal'
+import GatewayEditModal from './GatewayEditModal'
+import type { Gateway } from '../../types'
 
 function GatewayList() {
   const { gateways, loading, fetchGateways } = useGatewayStore()
   const [searchTerm, setSearchTerm] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [selectedGateway, setSelectedGateway] = useState<Gateway | null>(null)
 
   useEffect(() => {
     fetchGateways()
@@ -27,6 +31,11 @@ function GatewayList() {
     { key: 'lastHeartbeat', label: '最后心跳' },
     { key: 'actions', label: '操作' },
   ]
+
+  const handleEditClick = (gateway: Gateway) => {
+    setSelectedGateway(gateway)
+    setIsEditModalOpen(true)
+  }
 
   const renderRow = (gateway: typeof gateways[0]) => (
     <tr key={gateway.id} className="hover:bg-gray-50">
@@ -48,7 +57,12 @@ function GatewayList() {
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-        <button className="text-primary-600 hover:text-primary-900 mr-4">编辑</button>
+        <button
+          onClick={() => handleEditClick(gateway)}
+          className="text-primary-600 hover:text-primary-900 mr-4"
+        >
+          编辑
+        </button>
         <button className="text-red-600 hover:text-red-900">删除</button>
       </td>
     </tr>
@@ -96,6 +110,15 @@ function GatewayList() {
       <GatewayCreateModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+      />
+
+      <GatewayEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setSelectedGateway(null)
+        }}
+        gateway={selectedGateway}
       />
     </div>
   )
