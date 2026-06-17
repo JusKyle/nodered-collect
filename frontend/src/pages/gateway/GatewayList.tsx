@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { useGatewayStore } from '../../stores/gateway.store'
 import DataTable from '../../components/DataTable'
 import StatusBadge from '../../components/StatusBadge'
+import GatewayCreateModal from './GatewayCreateModal'
 
 function GatewayList() {
   const { gateways, loading, fetchGateways } = useGatewayStore()
   const [searchTerm, setSearchTerm] = useState('')
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
   useEffect(() => {
     fetchGateways()
@@ -72,7 +74,10 @@ function GatewayList() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <button className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors">
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+          >
             新建网关
           </button>
           <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
@@ -86,6 +91,11 @@ function GatewayList() {
         data={filteredGateways}
         renderRow={renderRow}
         loading={loading}
+      />
+
+      <GatewayCreateModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
       />
     </div>
   )
