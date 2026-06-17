@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -30,7 +30,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 function GatewayCreateModal({ isOpen, onClose }: GatewayCreateModalProps) {
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -40,6 +40,9 @@ function GatewayCreateModal({ isOpen, onClose }: GatewayCreateModalProps) {
       description: '',
     },
   })
+
+  const formValues = watch()
+  const canTestConnection = formValues.name && formValues.address && formValues.adminToken
 
   const { createGateway, fetchGateways } = useGatewayStore()
   const [showToken, setShowToken] = useState(false)
@@ -203,7 +206,7 @@ function GatewayCreateModal({ isOpen, onClose }: GatewayCreateModalProps) {
             <button
               type="button"
               onClick={handleTestConnection}
-              disabled={isSubmitting || !register('name').ref?.current?.value || !register('address').ref?.current?.value}
+              disabled={isSubmitting || !canTestConnection}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {connectionStatus === 'testing' ? '测试中...' : '测试连接'}

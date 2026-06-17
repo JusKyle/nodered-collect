@@ -8,6 +8,7 @@ export interface Gateway {
   lastHeartbeat: string | null
   createdAt: string
   updatedAt: string
+  description?: string
 }
 
 export interface DeviceModel {

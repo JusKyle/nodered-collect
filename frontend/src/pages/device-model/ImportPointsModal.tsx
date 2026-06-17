@@ -11,8 +11,10 @@ interface ImportPointsModalProps {
 
 interface ParsedRow {
   name: string
+  code?: string
   address: string
   type: string
+  dataType?: string
   unit?: string
   description?: string
   isValid: boolean
@@ -171,8 +173,10 @@ function ImportPointsModal({ isOpen, onClose, modelId, onImportSuccess }: Import
       .filter(row => row.isValid)
       .map(row => ({
         name: row.name,
+        code: row.code || row.name,
         address: row.address,
-        type: row.type,
+        type: row.type || 'read',
+        dataType: row.dataType || 'int',
         unit: row.unit,
         description: row.description,
       }))
