@@ -13,6 +13,8 @@ export interface Gateway {
 export interface DeviceModel {
   id: string
   name: string
+  vendor: string
+  model: string
   protocol: string
   description: string | null
   points: Point[]
@@ -22,8 +24,10 @@ export interface DeviceModel {
 
 export interface Point {
   name: string
+  code: string
   address: string
   type: string
+  dataType: string
   unit?: string
   description?: string
 }

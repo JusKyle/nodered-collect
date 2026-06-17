@@ -13,6 +13,8 @@ export const getDeviceModelById = async (id: string): Promise<DeviceModel> => {
 
 export const createDeviceModel = async (data: {
   name: string
+  vendor: string
+  model: string
   protocol: string
   description?: string
   points: any[]

@@ -5,6 +5,7 @@ import StatusBadge from '../../components/StatusBadge'
 import GatewayCreateModal from './GatewayCreateModal'
 import GatewayEditModal from './GatewayEditModal'
 import RegistrationCodeModal from './RegistrationCodeModal'
+import DeleteConfirmBubble from './DeleteConfirmBubble'
 import type { Gateway } from '../../types'
 
 function GatewayList() {
@@ -65,7 +66,7 @@ function GatewayList() {
         >
           编辑
         </button>
-        <button className="text-red-600 hover:text-red-900">删除</button>
+        <DeleteConfirmBubble gateway={gateway} onDelete={fetchGateways} />
       </td>
     </tr>
   )

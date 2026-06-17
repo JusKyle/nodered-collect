@@ -7,7 +7,7 @@ interface DeviceModelStore {
   loading: boolean
   error: string | null
   fetchDeviceModels: () => Promise<void>
-  createDeviceModel: (data: { name: string; protocol: string; description?: string; points: any[] }) => Promise<void>
+  createDeviceModel: (data: { name: string; vendor: string; model: string; protocol: string; description?: string; points: any[] }) => Promise<void>
   updateDeviceModel: (id: string, data: Partial<DeviceModel>) => Promise<void>
   deleteDeviceModel: (id: string) => Promise<void>
 }

@@ -18,3 +18,11 @@ export const deployConfig = async (data: {
   const response = await api.post('/sync/deploy', data)
   return response.data
 }
+
+export const dispatchConfig = async (data: {
+  gatewayId: string
+  deviceInstanceId?: string
+}): Promise<SyncRecord> => {
+  const response = await api.post('/sync/dispatch', data)
+  return response.data
+}
