@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>设备实例管理 - 采集系统管理平台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 3px; }
+    .modal-backdrop { background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px); }
+    .popover { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12); }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+  <header class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-30 h-14 flex items-center px-6">
+    <div class="flex items-center gap-2">
+      <a href="01-边缘网关管理.html" class="flex items-center gap-2">
+        <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+          <i data-lucide="network" class="w-5 h-5 text-white"></i>
+        </div>
+        <span class="font-semibold text-lg text-gray-900">采集系统管理平台</span>
+      </a>
+    </div>
+    <nav class="ml-12 flex items-center gap-1">
+      <a class="px-3 py-1.5 text-sm rounded-md text-gray-600 hover:bg-gray-50" href="01-边缘网关管理.html">边缘网关</a>
+      <a class="px-3 py-1.5 text-sm rounded-md text-gray-600 hover:bg-gray-50" href="02-设备模型管理.html">设备模型</a>
+      <a class="px-3 py-1.5 text-sm rounded-md bg-blue-50 text-blue-700 font-medium" href="03-设备实例管理.html">设备实例</a>
+      <a class="px-3 py-1.5 text-sm rounded-md text-gray-600 hover:bg-gray-50" href="04-配置下发与同步.html">配置下发</a>
+    </nav>
+    <div class="ml-auto flex items-center gap-4">
+      <button class="p-1.5 hover:bg-gray-100 rounded-md"><i data-lucide="bell" class="w-4 h-4 text-gray-600"></i></button>
+      <div class="flex items-center gap-2 pl-4 border-l border-gray-200">
+        <div class="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-700">运</div>
+        <span class="text-sm text-gray-700">运维人员</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 左侧菜单 -->
+  <aside class="fixed left-0 top-14 bottom-0 w-56 bg-white border-r border-gray-200 z-20 pt-4">
+    <div class="px-4 mb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">网关管理</div>
+    <a class="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50" href="01-边缘网关管理.html">
+      <i data-lucide="server" class="w-4 h-4"></i>边缘网关列表
+    </a>
+    <a class="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50" href="04-配置下发与同步.html">
+      <i data-lucide="list-checks" class="w-4 h-4"></i>下发日志
+    </a>
+    <div class="px-4 mt-6 mb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">数据建模</div>
+    <a class="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50" href="02-设备模型管理.html">
+      <i data-lucide="layout-template" class="w-4 h-4"></i>所有模型
+    </a>
+    <div class="px-4 mt-6 mb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">设备实例</div>
+    <a class="flex items-center gap-2 px-4 py-2 text-sm bg-blue-50 text-blue-700 border-r-2 border-blue-600 font-medium" href="03-设备实例管理.html">
+      <i data-lucide="cpu" class="w-4 h-4"></i>所有实例
+    </a>
+    <div class="px-4 mt-6 mb-2 text-xs font-medium text-gray-400 uppercase tracking-wider">配置下发</div>
+    <a class="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50" href="04-配置下发与同步.html">
+      <i data-lucide="send" class="w-4 h-4"></i>下发管理
+    </a>
+  </aside>
+
+  <main class="ml-56 mt-14 p-6">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h1 class="text-2xl font-semibold text-gray-900">设备实例</h1>
+        <p class="text-sm text-gray-500 mt-1">从设备模型创建具体设备实例，绑定网关后下发配置开始采集</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openModal('batchCreateModal')" class="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 text-gray-700">
+          <i data-lucide="layers" class="w-4 h-4"></i>批量新建
+        </button>
+        <button onclick="openModal('createInstanceModal')" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-1.5">
+          <i data-lucide="plus" class="w-4 h-4"></i>新建实例
+        </button>
+      </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-4 gap-4 mb-5">
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div><div class="text-sm text-gray-500">实例总数</div><div class="text-2xl font-semibold mt-1 text-gray-900">87</div></div>
+          <div class="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center"><i data-lucide="cpu" class="w-5 h-5 text-blue-600"></i></div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div><div class="text-sm text-gray-500">运行中</div><div class="text-2xl font-semibold mt-1 text-green-600">72</div></div>
+          <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center"><i data-lucide="play-circle" class="w-5 h-5 text-green-600"></i></div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div><div class="text-sm text-gray-500">待同步</div><div class="text-2xl font-semibold mt-1 text-amber-600">8</div></div>
+          <div class="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center"><i data-lucide="clock" class="w-5 h-5 text-amber-600"></i></div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div><div class="text-sm text-gray-500">离线</div><div class="text-2xl font-semibold mt-1 text-red-600">7</div></div>
+          <div class="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center"><i data-lucide="wifi-off" class="w-5 h-5 text-red-600"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 筛选/搜索区 -->
+    <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+      <div class="flex items-center gap-3 flex-wrap">
+        <div class="relative flex-1 max-w-xs">
+          <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input id="searchInput" type="text" placeholder="搜索实例名称" oninput="filterList()" class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <select id="modelFilter" onchange="filterList()" class="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white">
+          <option value="all">所属模型</option>
+          <option>西门子S7-1200</option>
+          <option>三菱FX5U</option>
+          <option>施耐德M340</option>
+        </select>
+        <select id="gatewayFilter" onchange="filterList()" class="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white">
+          <option value="all">绑定网关</option>
+          <option>厂区A-1号网关</option>
+          <option>厂区A-2号网关</option>
+          <option>厂区B-1号网关</option>
+        </select>
+        <select id="statusFilter" onchange="filterList()" class="px-3 py-2 text-sm border border-gray-300 rounded-md bg-white">
+          <option value="all">状态</option>
+          <option value="unbound">未绑定</option>
+          <option value="pending">待同步</option>
+          <option value="running">运行中</option>
+          <option value="offline">离线</option>
+        </select>
+        <button onclick="resetFilter()" class="px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-md">重置</button>
+        <div class="ml-auto text-xs text-gray-500 flex items-center gap-1.5">
+          <span class="status-dot bg-green-500"></span><span>5s 自动刷新中</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <table class="w-full">
+        <thead class="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
+          <tr>
+            <th class="px-4 py-3 text-left font-medium w-10"><input type="checkbox" class="rounded"></th>
+            <th class="px-4 py-3 text-left font-medium">实例名称</th>
+            <th class="px-4 py-3 text-left font-medium">所属模型</th>
+            <th class="px-4 py-3 text-left font-medium">绑定网关</th>
+            <th class="px-4 py-3 text-left font-medium">设备地址</th>
+            <th class="px-4 py-3 text-left font-medium">状态</th>
+            <th class="px-4 py-3 text-left font-medium">点位数量</th>
+            <th class="px-4 py-3 text-left font-medium">最近修改</th>
+            <th class="px-4 py-3 text-left font-medium">操作</th>
+          </tr>
+        </thead>
+        <tbody id="instanceList" class="text-sm divide-y divide-gray-100"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- 新建设备实例弹窗 -->
+  <div id="createInstanceModal" class="fixed inset-0 modal-backdrop z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl w-[720px] max-w-[95vw] max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <h3 class="text-base font-semibold text-gray-900">新建设备实例</h3>
+        <button onclick="closeModal('createInstanceModal')" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div class="px-6 py-5 overflow-y-auto scrollbar-thin flex-1">
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">所属模型 <span class="text-red-500">*</span></label>
+              <select class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option>西门子S7-1200 (12 个点位)</option>
+                <option>三菱FX5U (24 个点位)</option>
+                <option>施耐德M340 (18 个点位)</option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">仅显示启用状态的模型</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">绑定网关</label>
+              <select class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option>暂不绑定</option>
+                <option>厂区A-1号网关 (在线)</option>
+                <option>厂区A-2号网关 (在线)</option>
+                <option>厂区B-1号网关 (离线)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">设备地址 <span class="text-red-500">*</span></label>
+              <input type="text" placeholder="如：192.168.1.50 或 COM3" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">实例名称 <span class="text-red-500">*</span></label>
+              <input type="text" placeholder="如：车间1号PLC" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">描述</label>
+              <textarea rows="2" placeholder="选填" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+          </div>
+          <!-- 点位预览 -->
+          <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <div class="flex items-center gap-2 mb-2">
+              <i data-lucide="info" class="w-4 h-4 text-blue-600"></i>
+              <span class="text-sm font-medium text-gray-700">点位预览（继承自模型）</span>
+              <span class="text-xs text-gray-500">共 12 个点位</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div class="px-2 py-1 bg-white rounded">温度 (temp_001)</div>
+              <div class="px-2 py-1 bg-white rounded">压力 (press_001)</div>
+              <div class="px-2 py-1 bg-white rounded">运行状态 (run_status)</div>
+              <div class="px-2 py-1 bg-white rounded text-gray-400">+ 9 个</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 px-6 py-3 border-t border-gray-200 bg-gray-50">
+        <button onclick="closeModal('createInstanceModal')" class="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700">取消</button>
+        <button onclick="closeModal('createInstanceModal')" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 批量新建设备实例弹窗 -->
+  <div id="batchCreateModal" class="fixed inset-0 modal-backdrop z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl w-[820px] max-w-[95vw] max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <h3 class="text-base font-semibold text-gray-900">批量新建设备实例</h3>
+        <button onclick="closeModal('batchCreateModal')" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div class="px-6 py-5 overflow-y-auto scrollbar-thin flex-1">
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">所属模型 <span class="text-red-500">*</span></label>
+              <select class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white">
+                <option>西门子S7-1200</option>
+                <option>三菱FX5U</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1.5">绑定网关</label>
+              <select class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white">
+                <option>厂区A-1号网关</option>
+                <option>厂区A-2号网关</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">命名规则</label>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-sm text-gray-600">前缀：</span>
+              <input type="text" value="PLC-" class="w-32 px-2 py-1 text-sm border border-gray-300 rounded-md">
+              <span class="text-sm text-gray-600">起始编号：</span>
+              <input type="text" value="001" class="w-16 px-2 py-1 text-sm border border-gray-300 rounded-md">
+              <span class="text-xs text-gray-500">未填写名称时按此规则自动生成</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">设备列表 <span class="text-red-500">*</span></label>
+            <textarea rows="6" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md font-mono text-xs" placeholder="每行一个设备，格式：设备地址,实例名称&#10;如：&#10;192.168.1.50,车间1号PLC&#10;192.168.1.51,车间2号PLC&#10;192.168.1.52">192.168.1.50,车间1号PLC
+192.168.1.51,车间2号PLC
+192.168.1.52,车间3号PLC
+192.168.1.53,车间4号PLC
+192.168.1.54
+192.168.1.55</textarea>
+          </div>
+          <!-- 预览 -->
+          <div>
+            <div class="text-sm font-medium text-gray-700 mb-2">预览（共 6 行，<span class="text-green-600">5 行可创建</span>，<span class="text-red-600">1 行格式错误</span>）</div>
+            <div class="border border-gray-200 rounded-lg overflow-hidden">
+              <table class="w-full text-xs">
+                <thead class="bg-gray-50 text-gray-500">
+                  <tr><th class="px-3 py-2 text-left font-medium">序号</th><th class="px-3 py-2 text-left font-medium">设备地址</th><th class="px-3 py-2 text-left font-medium">实例名称</th><th class="px-3 py-2 text-left font-medium">状态</th></tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 bg-white">
+                  <tr><td class="px-3 py-2">1</td><td class="px-3 py-2 font-mono">192.168.1.50</td><td class="px-3 py-2">车间1号PLC</td><td class="px-3 py-2"><span class="text-green-600">可创建</span></td></tr>
+                  <tr><td class="px-3 py-2">2</td><td class="px-3 py-2 font-mono">192.168.1.51</td><td class="px-3 py-2">车间2号PLC</td><td class="px-3 py-2"><span class="text-green-600">可创建</span></td></tr>
+                  <tr><td class="px-3 py-2">3</td><td class="px-3 py-2 font-mono">192.168.1.52</td><td class="px-3 py-2">车间3号PLC</td><td class="px-3 py-2"><span class="text-green-600">可创建</span></td></tr>
+                  <tr><td class="px-3 py-2">4</td><td class="px-3 py-2 font-mono">192.168.1.53</td><td class="px-3 py-2">车间4号PLC</td><td class="px-3 py-2"><span class="text-green-600">可创建</span></td></tr>
+                  <tr><td class="px-3 py-2">5</td><td class="px-3 py-2 font-mono">192.168.1.54</td><td class="px-3 py-2">PLC-005</td><td class="px-3 py-2"><span class="text-blue-600">自动命名</span></td></tr>
+                  <tr><td class="px-3 py-2">6</td><td class="px-3 py-2 font-mono text-red-600">192.168.1.invalid</td><td class="px-3 py-2">PLC-006</td><td class="px-3 py-2"><span class="text-red-600">地址格式错误</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 px-6 py-3 border-t border-gray-200 bg-gray-50">
+        <button onclick="closeModal('batchCreateModal')" class="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700">取消</button>
+        <button onclick="closeModal('batchCreateModal')" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">创建 5 个实例</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 查看点位弹窗 -->
+  <div id="viewPointsModal" class="fixed inset-0 modal-backdrop z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl w-[840px] max-w-[95vw] max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <div>
+          <h3 class="text-base font-semibold text-gray-900">点位列表 - 车间1号PLC</h3>
+          <p class="text-xs text-gray-500 mt-0.5">继承自「西门子S7-1200 v1.2」模型</p>
+        </div>
+        <button onclick="closeModal('viewPointsModal')" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div class="px-6 py-3 border-b border-gray-200 flex items-center gap-2">
+        <span class="text-sm text-gray-700">来源：</span>
+        <button class="px-3 py-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded">全部</button>
+        <button class="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50">仅继承</button>
+        <button class="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50">仅自定义</button>
+        <span class="ml-auto text-xs text-gray-500">共 13 个点位（继承 12 / 自定义 1）</span>
+      </div>
+      <div class="flex-1 overflow-y-auto scrollbar-thin">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-xs text-gray-500 sticky top-0">
+            <tr>
+              <th class="px-4 py-2 text-left font-medium">点位名称</th>
+              <th class="px-4 py-2 text-left font-medium">点位编码</th>
+              <th class="px-4 py-2 text-left font-medium">数据类型</th>
+              <th class="px-4 py-2 text-left font-medium">读写权限</th>
+              <th class="px-4 py-2 text-left font-medium">寄存器地址</th>
+              <th class="px-4 py-2 text-left font-medium">采集频率</th>
+              <th class="px-4 py-2 text-left font-medium">单位</th>
+              <th class="px-4 py-2 text-left font-medium">来源</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr><td class="px-4 py-2">温度</td><td class="px-4 py-2 font-mono text-xs">temp_001</td><td class="px-4 py-2">float</td><td class="px-4 py-2">read</td><td class="px-4 py-2 font-mono text-xs">40001</td><td class="px-4 py-2">1000ms</td><td class="px-4 py-2">℃</td><td class="px-4 py-2"><span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded">继承</span></td></tr>
+            <tr><td class="px-4 py-2">压力</td><td class="px-4 py-2 font-mono text-xs">press_001</td><td class="px-4 py-2">float</td><td class="px-4 py-2">read</td><td class="px-4 py-2 font-mono text-xs">40003</td><td class="px-4 py-2">1000ms</td><td class="px-4 py-2">MPa</td><td class="px-4 py-2"><span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded">继承</span></td></tr>
+            <tr><td class="px-4 py-2">运行状态</td><td class="px-4 py-2 font-mono text-xs">run_status</td><td class="px-4 py-2">bool</td><td class="px-4 py-2">read</td><td class="px-4 py-2 font-mono text-xs">00001</td><td class="px-4 py-2">500ms</td><td class="px-4 py-2">-</td><td class="px-4 py-2"><span class="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded">继承</span></td></tr>
+            <tr><td class="px-4 py-2">能耗</td><td class="px-4 py-2 font-mono text-xs">energy_001</td><td class="px-4 py-2">float</td><td class="px-4 py-2">read</td><td class="px-4 py-2 font-mono text-xs">40020</td><td class="px-4 py-2">5000ms</td><td class="px-4 py-2">kWh</td><td class="px-4 py-2"><span class="text-xs px-2 py-0.5 bg-green-50 text-green-700 rounded">自定义</span></td></tr>
+            <tr class="text-gray-400"><td class="px-4 py-2 text-center" colspan="8">+ 9 个继承点位 ...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="flex items-center justify-end px-6 py-3 border-t border-gray-200 bg-gray-50">
+        <button onclick="closeModal('viewPointsModal')" class="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 删除两步提示气泡 -->
+  <div id="deleteStepModal" class="fixed inset-0 modal-backdrop z-50 hidden items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl w-[400px]">
+      <div class="p-5">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600"></i>
+          </div>
+          <div class="flex-1">
+            <h4 class="text-sm font-semibold text-gray-900">该实例当前处于"运行中"状态</h4>
+            <p class="text-xs text-gray-500 mt-1.5">需先解除下发配置才能删除。</p>
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-2 mt-4">
+          <button onclick="closeModal('deleteStepModal')" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 text-gray-700">取消</button>
+          <button onclick="closeModal('deleteStepModal')" class="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-md hover:bg-amber-700">解除下发</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const instances = [
+      { id: 1, name: '车间1号PLC', model: '西门子S7-1200', gateway: '厂区A-1号网关', address: '192.168.1.50', status: 'running', points: '12 / 1', time: '2026-06-15 14:30' },
+      { id: 2, name: '车间2号PLC', model: '西门子S7-1200', gateway: '厂区A-1号网关', address: '192.168.1.51', status: 'running', points: '12 / 0', time: '2026-06-15 14:30' },
+      { id: 3, name: '车间3号PLC', model: '西门子S7-1200', gateway: '厂区A-2号网关', address: '192.168.1.52', status: 'offline', points: '12 / 0', time: '2026-06-10 11:00' },
+      { id: 4, name: '车间1号变频器', model: '三菱FX5U', gateway: '厂区A-1号网关', address: '192.168.1.60', status: 'running', points: '24 / 2', time: '2026-06-12 09:00' },
+      { id: 5, name: '车间2号变频器', model: '三菱FX5U', gateway: '厂区A-1号网关', address: '192.168.1.61', status: 'pending', points: '24 / 0', time: '2026-06-16 16:00' },
+      { id: 6, name: '装配线PLC', model: '施耐德M340', gateway: '厂区B-1号网关', address: '192.168.2.30', status: 'offline', points: '18 / 0', time: '2026-05-20 14:00' },
+      { id: 7, name: '包装线PLC', model: '施耐德M340', gateway: '厂区B-2号网关', address: '192.168.2.40', status: 'running', points: '18 / 1', time: '2026-06-08 10:30' },
+      { id: 8, name: '备用PLC-1', model: '欧姆龙CP1H', gateway: '-', address: '-', status: 'unbound', points: '16 / 0', time: '2026-06-16 14:00' },
+    ];
+
+    function statusBadge(s) {
+      const map = {
+        running: '<span class="inline-flex items-center gap-1.5 text-xs"><span class="status-dot bg-green-500"></span><span class="text-green-700 font-medium">运行中</span></span>',
+        pending: '<span class="inline-flex items-center gap-1.5 text-xs"><span class="status-dot bg-amber-500"></span><span class="text-amber-700 font-medium">待同步</span></span>',
+        offline: '<span class="inline-flex items-center gap-1.5 text-xs"><span class="status-dot bg-red-500"></span><span class="text-red-700 font-medium">离线</span></span>',
+        unbound: '<span class="inline-flex items-center gap-1.5 text-xs"><span class="status-dot bg-gray-400"></span><span class="text-gray-500 font-medium">未绑定</span></span>',
+      };
+      return map[s];
+    }
+
+    function renderList() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const model = document.getElementById('modelFilter').value;
+      const gw = document.getElementById('gatewayFilter').value;
+      const st = document.getElementById('statusFilter').value;
+      const filtered = instances.filter(i => {
+        const ms = !search || i.name.toLowerCase().includes(search);
+        const mm = model === 'all' || model === '所属模型' || i.model === model;
+        const mg = gw === 'all' || gw === '绑定网关' || i.gateway === gw;
+        const mst = st === 'all' || i.status === st;
+        return ms && mm && mg && mst;
+      });
+
+      document.getElementById('instanceList').innerHTML = filtered.map(i => {
+        const ops = i.status === 'pending'
+          ? `<button class="text-blue-600 hover:text-blue-700">下发</button>
+             <span class="text-gray-300">|</span>
+             <button class="text-red-600 hover:text-red-700" onclick="closeModal('deleteStepModal')">删除</button>`
+          : i.status === 'unbound'
+          ? `<button class="text-blue-600 hover:text-blue-700">绑定</button>
+             <span class="text-gray-300">|</span>
+             <button class="text-red-600 hover:text-red-700">删除</button>`
+          : `<button class="text-blue-600 hover:text-blue-700">解除</button>
+             <span class="text-gray-300">|</span>
+             <button class="text-red-600 hover:text-red-700" onclick="openModal('deleteStepModal')">删除</button>`;
+        return `
+          <tr class="hover:bg-blue-50/30">
+            <td class="px-4 py-3"><input type="checkbox" class="rounded"></td>
+            <td class="px-4 py-3 font-medium text-gray-900">${i.name}</td>
+            <td class="px-4 py-3 text-gray-600">${i.model}</td>
+            <td class="px-4 py-3 text-gray-600">${i.gateway}</td>
+            <td class="px-4 py-3 text-gray-600 font-mono text-xs">${i.address}</td>
+            <td class="px-4 py-3">${statusBadge(i.status)}</td>
+            <td class="px-4 py-3 text-gray-700">${i.points}</td>
+            <td class="px-4 py-3 text-gray-500 text-xs">${i.time}</td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2 text-xs">
+                <button class="text-blue-600 hover:text-blue-700">编辑</button>
+                <span class="text-gray-300">|</span>
+                <button onclick="openModal('viewPointsModal')" class="text-blue-600 hover:text-blue-700">点位</button>
+                <span class="text-gray-300">|</span>
+                ${ops}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function filterList() { renderList(); }
+    function resetFilter() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('modelFilter').value = 'all';
+      document.getElementById('gatewayFilter').value = 'all';
+      document.getElementById('statusFilter').value = 'all';
+      renderList();
+    }
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+      document.getElementById(id).classList.add('flex');
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+      document.getElementById(id).classList.remove('flex');
+    }
+
+    renderList();
+    lucide.createIcons();
+  </script>
+</body>
+</html>
