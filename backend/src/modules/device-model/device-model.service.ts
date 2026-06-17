@@ -29,3 +29,7 @@ export const updateDeviceModel = async (
 export const deleteDeviceModel = async (id: string): Promise<DeviceModel> => {
   return repository.deleteDeviceModel(id)
 }
+
+export const getDeviceModelUsage = async (id: string): Promise<number> => {
+  return repository.getDeviceModelUsage(id)
+}

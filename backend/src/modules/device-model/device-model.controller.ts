@@ -40,3 +40,9 @@ export const deleteDeviceModel = async (req: Request, res: Response) => {
   const model = await service.deleteDeviceModel(id)
   res.json(model)
 }
+
+export const getDeviceModelUsage = async (req: Request, res: Response) => {
+  const { id } = req.params
+  const usage = await service.getDeviceModelUsage(id)
+  res.json({ usage })
+}

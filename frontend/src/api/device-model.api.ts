@@ -35,3 +35,8 @@ export const deleteDeviceModel = async (id: string): Promise<DeviceModel> => {
   const response = await api.delete(`/device-models/${id}`)
   return response.data
 }
+
+export const getDeviceModelUsage = async (id: string): Promise<{ usage: number }> => {
+  const response = await api.get(`/device-models/${id}/usage`)
+  return response.data
+}
