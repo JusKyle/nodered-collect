@@ -60,7 +60,9 @@ services:
     restart: unless-stopped
 
   nodered:
-    image: nodered/node-red:latest
+    build:
+      context: .
+      dockerfile: deployment/docker/nodered/Dockerfile
     container_name: collecting-system-nodered
     environment:
       - TZ=Asia/Shanghai
