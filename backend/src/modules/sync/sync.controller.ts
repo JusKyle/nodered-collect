@@ -30,3 +30,12 @@ export const deployConfig = async (req: Request, res: Response) => {
   const record = await service.deployConfig(validation.data)
   res.status(201).json(record)
 }
+
+export const undeployConfig = async (req: Request, res: Response) => {
+  const { deviceInstanceId, gatewayId } = req.body
+  if (!deviceInstanceId || !gatewayId) {
+    return res.status(400).json({ message: 'deviceInstanceId and gatewayId are required' })
+  }
+  const record = await service.undeployConfig({ deviceInstanceId, gatewayId })
+  res.json(record)
+}

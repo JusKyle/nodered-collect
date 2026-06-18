@@ -26,3 +26,11 @@ export const dispatchConfig = async (data: {
   const response = await api.post('/sync/dispatch', data)
   return response.data
 }
+
+export const undeployConfig = async (data: {
+  gatewayId: string
+  deviceInstanceId: string
+}): Promise<SyncRecord> => {
+  const response = await api.post('/sync/undeploy', data)
+  return response.data
+}

@@ -91,6 +91,10 @@ enum DeviceStatus {
   OFFLINE
   SYNCING
   ERROR
+  PENDING
+  UNBOUND
+  PENDING_SYNC
+  RUNNING
 }
 
 model SyncRecord {
@@ -109,6 +113,7 @@ model SyncRecord {
 
 enum SyncType {
   DEPLOY
+  UNDEPLOY
   HEARTBEAT
   CONFIG_SYNC
   DATA_UPLOAD

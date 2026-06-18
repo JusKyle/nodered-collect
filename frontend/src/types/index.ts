@@ -49,8 +49,11 @@ export interface DeviceInstance {
   modelId: string
   gatewayId: string
   nodeId: string
-  config: Record<string, any>
-  status: 'ONLINE' | 'OFFLINE' | 'SYNCING' | 'ERROR'
+  config: {
+    points?: Point[]
+    customPoints?: Point[]
+  }
+  status: 'PENDING' | 'UNBOUND' | 'PENDING_SYNC' | 'RUNNING' | 'ONLINE' | 'OFFLINE' | 'SYNCING' | 'ERROR'
   lastSyncTime: string | null
   createdAt: string
   updatedAt: string

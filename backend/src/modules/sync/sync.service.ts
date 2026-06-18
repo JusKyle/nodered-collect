@@ -37,3 +37,13 @@ export const deployConfig = async (dto: DeployConfigDto): Promise<SyncRecord> =>
 
   return syncRecord
 }
+
+export const undeployConfig = async (dto: { deviceInstanceId: string; gatewayId: string }): Promise<SyncRecord> => {
+  const syncRecord = await repository.createSyncRecord({
+    type: SyncType.UNDEPLOY,
+    gatewayId: dto.gatewayId,
+    deviceInstanceId: dto.deviceInstanceId,
+    status: SyncStatus.PENDING
+  })
+  return syncRecord
+}

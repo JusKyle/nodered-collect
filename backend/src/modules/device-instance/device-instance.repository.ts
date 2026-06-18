@@ -49,6 +49,13 @@ export const deleteDeviceInstance = async (id: string): Promise<DeviceInstance> 
   return prisma.deviceInstance.delete({ where: { id } })
 }
 
+export const changeGateway = async (id: string, gatewayId: string): Promise<DeviceInstance> => {
+  return prisma.deviceInstance.update({
+    where: { id },
+    data: { gatewayId, status: 'PENDING_SYNC' }
+  })
+}
+
 export const updateDeviceInstanceStatus = async (
   id: string,
   status: DeviceStatus,
@@ -57,5 +64,19 @@ export const updateDeviceInstanceStatus = async (
   return prisma.deviceInstance.update({
     where: { id },
     data: { status, lastSyncTime }
+  })
+}
+
+export const getDeviceInstanceWithModel = async (id: string) => {
+  return prisma.deviceInstance.findUnique({
+    where: { id },
+    include: { model: true }
+  })
+}
+
+export const updateInstanceConfig = async (id: string, config: object): Promise<DeviceInstance> => {
+  return prisma.deviceInstance.update({
+    where: { id },
+    data: { config }
   })
 }

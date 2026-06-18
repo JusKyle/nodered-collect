@@ -52,3 +52,13 @@ export const deleteDeviceInstance = async (id: string): Promise<DeviceInstance> 
   const response = await api.delete(`/device-instances/${id}`)
   return response.data
 }
+
+export const changeGateway = async (id: string, gatewayId: string): Promise<DeviceInstance> => {
+  const response = await api.put(`/device-instances/${id}/gateway`, { gatewayId })
+  return response.data
+}
+
+export const syncPoints = async (id: string): Promise<DeviceInstance> => {
+  const response = await api.put(`/device-instances/${id}/sync-points`)
+  return response.data
+}

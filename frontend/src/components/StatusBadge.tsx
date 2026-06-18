@@ -9,11 +9,14 @@ interface StatusBadgeProps {
 function StatusBadge({ status, onClick, tooltip }: StatusBadgeProps) {
   const statusConfig: Record<string, { dot: string; bg: string; text: string; label: string }> = {
     ONLINE: { dot: 'bg-green-500', bg: 'bg-green-100', text: 'text-green-700', label: '在线' },
-    OFFLINE: { dot: 'bg-gray-400', bg: 'bg-gray-100', text: 'text-gray-600', label: '离线' },
-    TOKEN_EXPIRED: { dot: 'bg-red-500', bg: 'bg-red-100', text: 'text-red-700', label: 'Token失效' },
-    SYNCING: { dot: 'bg-yellow-500', bg: 'bg-yellow-100', text: 'text-yellow-700', label: '同步中' },
+    OFFLINE: { dot: 'bg-red-500', bg: 'bg-red-100', text: 'text-red-700', label: '离线' },
     ERROR: { dot: 'bg-red-500', bg: 'bg-red-100', text: 'text-red-700', label: '错误' },
-    PENDING: { dot: 'bg-blue-500', bg: 'bg-blue-100', text: 'text-blue-700', label: '待处理' },
+    SYNCING: { dot: 'bg-yellow-500', bg: 'bg-yellow-100', text: 'text-yellow-700', label: '同步中' },
+    PENDING: { dot: 'bg-gray-400', bg: 'bg-gray-100', text: 'text-gray-600', label: '未绑定' },
+    UNBOUND: { dot: 'bg-gray-400', bg: 'bg-gray-100', text: 'text-gray-600', label: '未绑定' },
+    PENDING_SYNC: { dot: 'bg-yellow-500', bg: 'bg-yellow-100', text: 'text-yellow-700', label: '待同步' },
+    RUNNING: { dot: 'bg-green-500', bg: 'bg-green-100', text: 'text-green-700', label: '运行中' },
+    TOKEN_EXPIRED: { dot: 'bg-red-500', bg: 'bg-red-100', text: 'text-red-700', label: 'Token失效' },
     SUCCESS: { dot: 'bg-green-500', bg: 'bg-green-100', text: 'text-green-700', label: '成功' },
     FAILED: { dot: 'bg-red-500', bg: 'bg-red-100', text: 'text-red-700', label: '失败' },
   }
