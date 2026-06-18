@@ -54,7 +54,7 @@ export const initializeMqttSubscriptions = () => {
       const gatewayId = extractGatewayIdFromHeartbeatTopic(receivedTopic)
       if (gatewayId) {
         try {
-          await handleHeartbeat(gatewayId)
+          await handleHeartbeat(gatewayId, message.toString())
         } catch (err) {
           console.error(`Failed to handle heartbeat for gateway ${gatewayId}`, err)
         }
