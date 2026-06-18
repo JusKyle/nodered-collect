@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { DeviceStatus } from '@prisma/client'
 
 export const createDeviceInstanceDto = z.object({
   name: z.string(),
@@ -13,7 +14,8 @@ export const updateDeviceInstanceDto = z.object({
   modelId: z.string().optional(),
   gatewayId: z.string().optional(),
   nodeId: z.string().optional(),
-  config: z.record(z.string(), z.any()).optional()
+  config: z.record(z.string(), z.any()).optional(),
+  status: z.nativeEnum(DeviceStatus).optional()
 })
 
 export const batchCreateDeviceInstancesDto = z.object({

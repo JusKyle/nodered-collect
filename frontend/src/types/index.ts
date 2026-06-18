@@ -60,6 +60,7 @@ export interface DeviceInstance {
   }
   status: 'PENDING' | 'UNBOUND' | 'PENDING_SYNC' | 'RUNNING' | 'ONLINE' | 'OFFLINE' | 'SYNCING' | 'ERROR'
   lastSyncTime: string | null
+  lastDataTime: string | null
   createdAt: string
   updatedAt: string
   model?: DeviceModel
