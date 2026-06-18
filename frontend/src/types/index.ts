@@ -6,6 +6,11 @@ export interface Gateway {
   adminToken: string
   status: 'ONLINE' | 'OFFLINE' | 'ERROR' | 'TOKEN_EXPIRED'
   lastHeartbeat: string | null
+  heartbeatInterval?: number
+  heartbeatTimeout?: number
+  nodeRedVersion?: string | null
+  ip?: string | null
+  flowCount?: number | null
   createdAt: string
   updatedAt: string
   description?: string
@@ -55,6 +60,7 @@ export interface DeviceInstance {
   }
   status: 'PENDING' | 'UNBOUND' | 'PENDING_SYNC' | 'RUNNING' | 'ONLINE' | 'OFFLINE' | 'SYNCING' | 'ERROR'
   lastSyncTime: string | null
+  lastDataTime: string | null
   createdAt: string
   updatedAt: string
   model?: DeviceModel

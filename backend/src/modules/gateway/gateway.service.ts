@@ -3,6 +3,7 @@ import { Gateway, GatewayStatus } from '@prisma/client'
 import * as repository from './gateway.repository'
 import { CreateGatewayDto, UpdateGatewayDto, TestConnectionDto } from './gateway.dto'
 import { markGatewayTokenExpired } from '../../services/heartbeat.service'
+import { deployGatewayBaseFlow } from '../sync/sync.service'
 import { redisClient } from '../../config/redis'
 
 export const createGateway = async (dto: CreateGatewayDto): Promise<Gateway> => {
@@ -62,6 +63,15 @@ export const testConnection = async (
           await repository.updateGateway(dto.gatewayId, {
             status: GatewayStatus.ONLINE
           })
+        }
+
+        // 关键：测试连接成功后，下发网关基础流（心跳 + 配置监听节点）
+        try {
+          if (gateway) {
+            await deployGatewayBaseFlow(gateway)
+          }
+        } catch (err) {
+          console.error(`Failed to deploy base flow for gateway ${dto.gatewayId}`, err)
         }
       }
       return { success: true, tokenExpired: false, message: 'Connection successful' }

@@ -8,18 +8,24 @@ datasource db {
 }
 
 model Gateway {
-  id            String         @id @default(cuid())
-  name          String
-  address       String
-  port          Int            @default(1880)
-  adminToken    String
-  status        GatewayStatus  @default(OFFLINE)
-  lastHeartbeat DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                String         @id @default(cuid())
+  name              String
+  address           String
+  port              Int            @default(1880)
+  adminToken        String
+  status            GatewayStatus  @default(OFFLINE)
+  lastHeartbeat     DateTime?
+  heartbeatInterval Int            @default(30)
+  heartbeatTimeout  Int            @default(90)
+  nodeRedVersion    String?
+  ip                String?
+  flowCount         Int?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   deviceInstances DeviceInstance[]
   syncRecords     SyncRecord[]
+  dataPoints      DeviceDataPoint[]
 
   @@unique([address, port])
 }
@@ -76,12 +82,14 @@ model DeviceInstance {
   config          Json?
   status          DeviceStatus  @default(OFFLINE)
   lastSyncTime    DateTime?
+  lastDataTime    DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   model           DeviceModel   @relation(fields: [modelId], references: [id])
   gateway         Gateway       @relation(fields: [gatewayId], references: [id])
   syncRecords     SyncRecord[]
+  dataPoints      DeviceDataPoint[]
 
   @@unique([gatewayId, nodeId])
 }
@@ -123,6 +131,26 @@ enum SyncStatus {
   PENDING
   SUCCESS
   FAILED
+}
+
+model DeviceDataPoint {
+  id               String    @id @default(cuid())
+  deviceInstanceId String
+  gatewayId        String
+  pointCode       String
+  pointName       String
+  value           String
+  dataType        String
+  timestamp       DateTime
+  receivedAt      DateTime  @default(now())
+  quality         Int       @default(0)
+
+  instance DeviceInstance @relation(fields: [deviceInstanceId], references: [id])
+  gateway  Gateway        @relation(fields: [gatewayId], references: [id])
+
+  @@index([deviceInstanceId, pointCode, timestamp(sort: Desc)])
+  @@index([gatewayId, timestamp(sort: Desc)])
+  @@index([timestamp(sort: Desc)])
 }
 
 model RegistrationCode {

@@ -57,6 +57,9 @@ function GatewayList() {
     { key: 'address', label: '地址' },
     { key: 'port', label: '端口' },
     { key: 'status', label: '状态' },
+    { key: 'nodeRedVersion', label: 'NR 版本' },
+    { key: 'ip', label: 'IP' },
+    { key: 'flowCount', label: '流数' },
     { key: 'lastHeartbeat', label: '最后心跳' },
     { key: 'actions', label: '操作' },
   ]
@@ -124,6 +127,15 @@ function GatewayList() {
         ) : (
           <StatusBadge status={gateway.status} />
         )}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-500">{gateway.nodeRedVersion || '-'}</div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-500">{gateway.ip || '-'}</div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-500">{gateway.flowCount ?? '-'}</div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="text-sm text-gray-500">

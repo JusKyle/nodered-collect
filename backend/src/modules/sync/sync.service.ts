@@ -1,242 +1,501 @@
 import axios from 'axios'
 import { SyncRecord, SyncType, SyncStatus, GatewayStatus, DeviceStatus } from '@prisma/client'
+import { prisma } from '../../config/db'
 import * as repository from './sync.repository'
 import { CreateSyncRecordDto, DeployConfigDto } from './sync.dto'
 import { getGatewayById } from '../gateway/gateway.service'
-import { getDeviceInstanceById, getDeviceInstanceWithModel, updateDeviceInstanceStatus } from '../device-instance/device-instance.service'
+import { getDeviceInstanceById, updateDeviceInstance } from '../device-instance/device-instance.service'
 import { markGatewayTokenExpired } from '../../services/heartbeat.service'
 import { redisClient } from '../../config/redis'
 
-const RETRY_CONFIG = [
-  { delay: 10000 },   // 10秒
-  { delay: 30000 },   // 30秒
-  { delay: 60000 }    // 60秒
-]
+// ============================================================
+// 1. 网关基础流（心跳 + 配置监听 + MQTT broker 配置）
+// ============================================================
 
-// 生成 Node-RED Flow 配置
-const generateNodeREDFlow = (instance: any): any => {
+export const generateGatewayBaseFlow = (gateway: any): any => {
+  const gwId = gateway.id.replace(/-/g, '')
+  const interval = gateway.heartbeatInterval || 30
+  const nodes: any[] = []
+  let y = 40
+
+  const heartbeatInjectId = `hb-inject-${gwId}`
+  const heartbeatFuncId = `hb-func-${gwId}`
+  const heartbeatOutId = `hb-out-${gwId}`
+  const configInId = `cfg-in-${gwId}`
+  const configHttpId = `cfg-httpreq-${gwId}`
+  const configResultId = `cfg-result-${gwId}`
+  const brokerId = `mqtt-broker-${gwId}`
+
+  const gatewayInfo = JSON.stringify({ id: gateway.id, name: gateway.name })
+
+  // 1) 心跳触发
+  nodes.push({
+    id: heartbeatInjectId,
+    type: 'inject',
+    z: '',
+    name: 'heartbeat-trigger',
+    payload: '',
+    payloadType: 'none',
+    repeat: String(interval),
+    crontab: '',
+    once: true,
+    onceDelay: 1,
+    x: 120,
+    y,
+    wires: [[]]
+  })
+  y += 80
+
+  // 2) 心跳组装
+  nodes.push({
+    id: heartbeatFuncId,
+    type: 'function',
+    z: '',
+    name: 'assemble-heartbeat',
+    func: 'msg.payload = { gatewayId: ' + gatewayInfo + '.id, timestamp: Date.now(), status: "online" }; return msg;',
+    outputs: 1,
+    noerr: 0,
+    initialize: '',
+    finalize: '',
+    libs: [],
+    x: 350,
+    y,
+    wires: [[]]
+  })
+  y += 80
+
+  // 3) 心跳 mqtt out
+  nodes.push({
+    id: heartbeatOutId,
+    type: 'mqtt out',
+    z: '',
+    name: 'heartbeat-out',
+    topic: 'gateway/' + gateway.id + '/heartbeat',
+    qos: '1',
+    retain: 'false',
+    broker: brokerId,
+    x: 600,
+    y,
+    wires: []
+  })
+  y += 120
+
+  // 4) 配置下发监听
+  nodes.push({
+    id: configInId,
+    type: 'mqtt in',
+    z: '',
+    name: 'config-listener',
+    topic: 'gateway/' + gateway.id + '/config',
+    qos: '2',
+    datatype: 'json',
+    broker: brokerId,
+    x: 120,
+    y,
+    wires: [[]]
+  })
+  y += 80
+
+  // 5) HTTP request 触发部署
+  nodes.push({
+    id: configHttpId,
+    type: 'http request',
+    z: '',
+    name: 'deploy-flows',
+    method: 'POST',
+    ret: 'obj',
+    url: 'http://127.0.0.1:1880/flows',
+    timeout: '30',
+    headers: {},
+    x: 350,
+    y,
+    wires: [[]]
+  })
+  y += 80
+
+  // 6) 下发结果回传
+  nodes.push({
+    id: configResultId,
+    type: 'mqtt out',
+    z: '',
+    name: 'deploy-result',
+    topic: 'gateway/' + gateway.id + '/config/result',
+    qos: '1',
+    retain: 'false',
+    broker: brokerId,
+    x: 600,
+    y,
+    wires: []
+  })
+
+  // 接线
+  nodes[0].wires = [[heartbeatFuncId]]
+  nodes[1].wires = [[heartbeatOutId]]
+  nodes[3].wires = [[configHttpId]]
+  nodes[4].wires = [[configResultId]]
+
+  // MQTT broker 配置节点
+  const brokerConfig = {
+    id: brokerId,
+    type: 'mqtt-broker',
+    name: 'EMQX Broker',
+    broker: process.env.MQTT_HOST || 'emqx',
+    port: parseInt(process.env.MQTT_PORT || '1883'),
+    clientid: 'nodered-gw-' + gwId,
+    autoConnect: true,
+    usetls: false,
+    usews: false,
+    protocolVersion: '4',
+    keepalive: '60',
+    cleanness: true,
+    reconnectPeriod: '15000',
+    sessionExpiry: '3600'
+  }
+
+  return [...nodes, brokerConfig]
+}
+
+// ============================================================
+// 2. 设备实例采集流
+// ============================================================
+
+export const generateDeviceFlowNodes = (instance: any): any[] => {
   const model = instance.model
   const protocol = (model?.protocol || 's7').toLowerCase()
   const points = model?.points || []
   const customPoints = instance.config?.customPoints || []
   const allPoints = [...points, ...customPoints]
-  
+
   const baseId = instance.id.replace(/-/g, '')
-  const flowId = `flow-${baseId}`
-  
   const nodes: any[] = []
-  const wires: any[] = []
-  
-  let yOffset = 0
-  
-  const mqttInNode = {
-    id: `${baseId}-mqtt-in`,
-    type: 'mqtt in',
-    z: flowId,
-    name: `${instance.name}命令`,
-    topic: `devices/${instance.id}/cmd`,
-    qos: '0',
-    datatype: 'json',
-    x: 100,
-    y: yOffset,
-    wires: []
-  }
-  nodes.push(mqttInNode)
-  yOffset += 80
-  
-  const mqttOutNode = {
-    id: `${baseId}-mqtt-out`,
+  let y = 400
+
+  const mqttOutId = baseId + '-mqtt-out'
+  const debugId = baseId + '-debug'
+  const intervalId = baseId + '-interval'
+  const brokerId = 'mqtt-broker-' + (instance.gatewayId || '').replace(/-/g, '')
+
+  // mqtt out（数据上报）
+  nodes.push({
+    id: mqttOutId,
     type: 'mqtt out',
-    z: flowId,
-    name: `${instance.name}数据上报`,
-    topic: `devices/${instance.id}/data`,
+    z: '',
+    name: 'data-report',
+    topic: 'devices/' + instance.id + '/data',
     qos: '0',
     retain: 'false',
+    broker: brokerId,
     x: 900,
-    y: yOffset,
+    y,
     wires: []
-  }
-  nodes.push(mqttOutNode)
-  yOffset += 80
-  
-  const debugNode = {
-    id: `${baseId}-debug`,
+  })
+  y += 80
+
+  // debug
+  nodes.push({
+    id: debugId,
     type: 'debug',
-    z: flowId,
-    name: `${instance.name}调试`,
+    z: '',
     active: true,
     console: 'false',
     complete: 'payload',
+    targetType: 'msg',
+    status: '',
     x: 900,
-    y: yOffset,
+    y,
     wires: []
-  }
-  nodes.push(debugNode)
-  yOffset += 80
-  
-  let readIntervalNode: any = null
+  })
+  y += 80
+
+  // inject（采集周期）
+  nodes.push({
+    id: intervalId,
+    type: 'inject',
+    z: '',
+    name: 'collect-trigger',
+    payload: '',
+    payloadType: 'none',
+    repeat: '1',
+    crontab: '',
+    once: false,
+    onceDelay: 0.1,
+    x: 100,
+    y,
+    wires: [[]]
+  })
+  y += 80
+
+  // 协议节点
+  let protocolOutIds: string[] = []
+
   if (protocol === 's7') {
-    readIntervalNode = {
-      id: `${baseId}-interval`,
-      type: 'inject',
-      z: flowId,
-      name: `${instance.name}采集周期`,
-      topic: '',
-      payload: '',
-      payloadType: 'none',
-      repeat: '1',
-      crontab: '',
-      once: false,
-      onceDelay: 0.1,
-      x: 100,
-      y: yOffset,
-      wires: []
-    }
-    nodes.push(readIntervalNode)
-    yOffset += 80
-    
-    const s7Node = {
-      id: `${baseId}-s7`,
+    const s7NodeId = baseId + '-s7'
+    nodes.push({
+      id: s7NodeId,
       type: 'S7 in',
-      z: flowId,
-      name: `${instance.name}`,
-      endpoint: `endpoint-${baseId}`,
-      address: instance.deviceAddress || '',
+      z: '',
+      name: 's7-read',
+      endpoint: 'endpoint-' + baseId,
+      address: instance.config?.deviceAddress || '',
       mode: 'single',
       x: 350,
-      y: yOffset,
-      wires: []
-    }
-    nodes.push(s7Node)
-    
-    readIntervalNode.wires = [[s7Node.id]]
-    s7Node.wires = [[mqttOutNode.id, debugNode.id]]
+      y,
+      wires: [[mqttOutId, debugId]]
+    })
+    protocolOutIds = [intervalId]
+    nodes[2].wires = [[s7NodeId]]
   } else if (protocol === 'modbus') {
-    readIntervalNode = {
-      id: `${baseId}-interval`,
-      type: 'inject',
-      z: flowId,
-      name: `${instance.name}采集周期`,
-      topic: '',
-      payload: '',
-      payloadType: 'none',
-      repeat: '1',
-      crontab: '',
-      once: false,
-      onceDelay: 0.1,
-      x: 100,
-      y: yOffset,
-      wires: []
-    }
-    nodes.push(readIntervalNode)
-    yOffset += 80
-    
-    const modbusNode = {
-      id: `${baseId}-modbus`,
+    const modbusNodeId = baseId + '-modbus'
+    nodes.push({
+      id: modbusNodeId,
       type: 'modbus-read',
-      z: flowId,
-      name: `${instance.name}`,
-      server: `server-${baseId}`,
+      z: '',
+      name: 'modbus-read',
+      server: 'server-' + baseId,
       dataType: 'Coils',
       address: '0',
-      quantity: allPoints.length.toString(),
+      quantity: String(allPoints.length || 10),
       rate: '1',
       x: 350,
-      y: yOffset,
-      wires: []
-    }
-    nodes.push(modbusNode)
-    
-    readIntervalNode.wires = [[modbusNode.id]]
-    modbusNode.wires = [[mqttOutNode.id, debugNode.id]]
+      y,
+      wires: [[mqttOutId, debugId]]
+    })
+    protocolOutIds = [intervalId]
+    nodes[2].wires = [[modbusNodeId]]
   } else if (protocol === 'opcua') {
-    readIntervalNode = {
-      id: `${baseId}-interval`,
-      type: 'inject',
-      z: flowId,
-      name: `${instance.name}采集周期`,
-      topic: '',
-      payload: '',
-      payloadType: 'none',
-      repeat: '1',
-      crontab: '',
-      once: false,
-      onceDelay: 0.1,
-      x: 100,
-      y: yOffset,
-      wires: []
-    }
-    nodes.push(readIntervalNode)
-    yOffset += 80
-    
-    const opcuaNode = {
-      id: `${baseId}-opcua`,
+    const opcuaNodeId = baseId + '-opcua'
+    nodes.push({
+      id: opcuaNodeId,
       type: 'OpcUa-Client',
-      z: flowId,
-      name: `${instance.name}`,
-      endpoint: `endpoint-${baseId}`,
+      z: '',
+      name: 'opcua-read',
+      endpoint: 'endpoint-' + baseId,
       securityPolicy: 'None',
       securityMode: 'None',
       x: 350,
-      y: yOffset,
-      wires: []
-    }
-    nodes.push(opcuaNode)
-    
-    readIntervalNode.wires = [[opcuaNode.id]]
-    opcuaNode.wires = [[mqttOutNode.id, debugNode.id]]
+      y,
+      wires: [[mqttOutId, debugId]]
+    })
+    protocolOutIds = [intervalId]
+    nodes[2].wires = [[opcuaNodeId]]
   } else {
-    readIntervalNode = {
-      id: `${baseId}-interval`,
-      type: 'inject',
-      z: flowId,
-      name: `${instance.name}采集周期`,
-      topic: '',
-      payload: '',
-      payloadType: 'none',
-      repeat: '1',
-      crontab: '',
-      once: false,
-      onceDelay: 0.1,
-      x: 100,
-      y: yOffset,
-      wires: []
-    }
-    nodes.push(readIntervalNode)
-    yOffset += 80
-    
-    const httpNode = {
-      id: `${baseId}-http`,
+    const httpNodeId = baseId + '-http'
+    nodes.push({
+      id: httpNodeId,
       type: 'http request',
-      z: flowId,
-      name: `${instance.name}`,
+      z: '',
+      name: 'http-read',
       method: 'GET',
-      url: instance.deviceAddress || '',
+      ret: 'obj',
+      url: instance.config?.deviceAddress || '',
       x: 350,
-      y: yOffset,
-      wires: []
-    }
-    nodes.push(httpNode)
-    
-    readIntervalNode.wires = [[httpNode.id]]
-    httpNode.wires = [[mqttOutNode.id, debugNode.id]]
+      y,
+      wires: [[mqttOutId, debugId]]
+    })
+    protocolOutIds = [intervalId]
+    nodes[2].wires = [[httpNodeId]]
   }
-  
-  return {
-    flows: nodes,
-    configs: [
-      {
-        id: `mqtt-broker-${baseId}`,
-        type: 'mqtt-broker',
-        name: 'EMQX',
-        broker: process.env.MQTT_HOST || 'emqx',
-        port: parseInt(process.env.MQTT_PORT || '1883'),
-        clientid: `nodered-${instance.id}`,
-        useSSL: false,
-        keepalive: 60,
-        version: '4.0.0'
+
+  return nodes
+}
+
+// ============================================================
+// 3. 下发网关基础流
+// ============================================================
+
+export const deployGatewayBaseFlow = async (gateway: any): Promise<SyncRecord> => {
+  const lockKey = 'sync:dispatching:baseflow:' + gateway.id
+  const locked = await redisClient.set(lockKey, '1', { NX: true, EX: 60 })
+  if (!locked) {
+    throw new Error('基础流下发进行中，请稍后再试')
+  }
+
+  try {
+    const baseFlowNodes = generateGatewayBaseFlow(gateway)
+    const nodeRedUrl = 'http://' + gateway.address + ':' + gateway.port + '/flows'
+
+    try {
+      await axios.post(nodeRedUrl, baseFlowNodes, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000
+      })
+
+      return await repository.createSyncRecord({
+        type: SyncType.DEPLOY,
+        gatewayId: gateway.id,
+        deviceInstanceId: null as any,
+        status: SyncStatus.SUCCESS,
+        message: '网关基础流下发成功',
+        payload: { nodes: baseFlowNodes } as any
+      })
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await markGatewayTokenExpired(gateway.id)
+        throw new Error('网关 Token 已失效')
       }
-    ]
+      throw error
+    }
+  } finally {
+    await redisClient.del(lockKey)
+  }
+}
+
+// ============================================================
+// 4. 下发设备实例配置
+// ============================================================
+
+export const deployConfig = async (dto: DeployConfigDto): Promise<SyncRecord> => {
+  const { deviceInstanceId, gatewayId } = dto
+
+  const lockKey = 'sync:dispatching:' + deviceInstanceId
+  const locked = await redisClient.set(lockKey, '1', { NX: true, EX: 60 })
+  if (!locked) {
+    throw new Error('下发进行中，请稍后再试')
+  }
+
+  try {
+    const gateway = await getGatewayById(gatewayId)
+    if (!gateway) throw new Error('网关不存在')
+    if (gateway.status === GatewayStatus.OFFLINE) {
+      throw new Error('网关离线，无法下发配置')
+    }
+    if (gateway.status === GatewayStatus.TOKEN_EXPIRED) {
+      throw new Error('网关 Token 已失效，请更新后重试')
+    }
+
+    const instance = await prisma.deviceInstance.findUnique({
+      where: { id: deviceInstanceId },
+      include: { model: true }
+    })
+    if (!instance) throw new Error('设备实例不存在')
+
+    const modelPoints: any[] = (instance.model.points as any) || []
+    const customPoints: any[] = ((instance.config as any)?.customPoints) || []
+    const allPoints = [...modelPoints, ...customPoints]
+
+    const nodeRedUrl = 'http://' + gateway.address + ':' + gateway.port + '/flows'
+
+    let currentFlows: any[] = []
+    try {
+      const resp = await axios.get(nodeRedUrl, { timeout: 15000 })
+      currentFlows = Array.isArray(resp.data) ? resp.data : []
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        await markGatewayTokenExpired(gatewayId)
+        throw new Error('网关 Token 已失效')
+      }
+      currentFlows = []
+    }
+
+    // 补基础流（如果没有）
+    const gwId = gateway.id.replace(/-/g, '')
+    const hasBaseFlow = currentFlows.some((n: any) => n.id?.includes('hb-inject-' + gwId))
+    if (!hasBaseFlow) {
+      const baseNodes = generateGatewayBaseFlow(gateway)
+      currentFlows = [...currentFlows, ...baseNodes]
+    }
+
+    // 移除该实例旧节点
+    const baseId = deviceInstanceId.replace(/-/g, '')
+    currentFlows = currentFlows.filter((n: any) => !n.id?.startsWith(baseId))
+
+    // 追加新设备节点
+    const newNodes = generateDeviceFlowNodes(instance)
+    const finalFlows = [...currentFlows, ...newNodes]
+
+    try {
+      await axios.post(nodeRedUrl, finalFlows, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000
+      })
+
+      await updateDeviceInstance(deviceInstanceId, { status: DeviceStatus.RUNNING })
+
+      return await repository.createSyncRecord({
+        type: SyncType.DEPLOY,
+        gatewayId,
+        deviceInstanceId,
+        status: SyncStatus.SUCCESS,
+        payload: finalFlows as any
+      })
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        await markGatewayTokenExpired(gatewayId)
+        throw new Error('网关 Token 已失效')
+      }
+      return await handleDeployRetry(deviceInstanceId, gatewayId, finalFlows, error.message)
+    }
+  } finally {
+    await redisClient.del(lockKey)
+  }
+}
+
+const handleDeployRetry = async (
+  deviceInstanceId: string,
+  gatewayId: string,
+  flowConfig: any,
+  errorMessage: string,
+  attempt = 1
+): Promise<SyncRecord> => {
+  if (attempt > 3) {
+    await updateDeviceInstance(deviceInstanceId, { status: DeviceStatus.PENDING_SYNC })
+    return repository.createSyncRecord({
+      type: SyncType.DEPLOY,
+      gatewayId,
+      deviceInstanceId,
+      status: SyncStatus.FAILED,
+      message: errorMessage,
+      payload: flowConfig,
+      retryCount: 3
+    })
+  }
+
+  return repository.createSyncRecord({
+    type: SyncType.DEPLOY,
+    gatewayId,
+    deviceInstanceId,
+    status: SyncStatus.PENDING,
+    message: '第' + attempt + '次重试等待中',
+    payload: flowConfig,
+    retryCount: attempt
+  })
+}
+
+export const undeployConfig = async (dto: { deviceInstanceId: string; gatewayId: string }): Promise<SyncRecord> => {
+  const { deviceInstanceId, gatewayId } = dto
+
+  const gateway = await getGatewayById(gatewayId)
+  if (!gateway) throw new Error('网关不存在')
+
+  const nodeRedUrl = 'http://' + gateway.address + ':' + gateway.port + '/flows'
+
+  try {
+    const response = await axios.get(nodeRedUrl, { timeout: 10000 })
+    const currentFlows = response.data
+    const baseId = deviceInstanceId.replace(/-/g, '')
+    const filteredFlows = currentFlows.filter((node: any) => !node.id?.startsWith(baseId))
+
+    await axios.post(nodeRedUrl, filteredFlows, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000
+    })
+
+    await updateDeviceInstance(deviceInstanceId, { status: DeviceStatus.PENDING_SYNC })
+
+    return repository.createSyncRecord({
+      type: SyncType.UNDEPLOY,
+      gatewayId,
+      deviceInstanceId,
+      status: SyncStatus.SUCCESS
+    })
+  } catch (error: any) {
+    return repository.createSyncRecord({
+      type: SyncType.UNDEPLOY,
+      gatewayId,
+      deviceInstanceId,
+      status: SyncStatus.FAILED,
+      message: error.message
+    })
   }
 }
 
@@ -257,155 +516,4 @@ export const getAllSyncRecords = async (): Promise<SyncRecord[]> => {
 
 export const getSyncRecordsByGatewayId = async (gatewayId: string): Promise<SyncRecord[]> => {
   return repository.getSyncRecordsByGatewayId(gatewayId)
-}
-
-export const deployConfig = async (dto: DeployConfigDto): Promise<SyncRecord> => {
-  const { deviceInstanceId, gatewayId } = dto
-  
-  // 1. 检查下发锁
-  const lockKey = `sync:dispatching:${deviceInstanceId}`
-  const locked = await redisClient.set(lockKey, '1', { NX: true, EX: 60 })
-  if (!locked) {
-    throw new Error('下发进行中，请稍后再试')
-  }
-  
-  try {
-    // 2. 检查网关状态
-    const gateway = await getGatewayById(gatewayId)
-    if (!gateway) throw new Error('网关不存在')
-    if (gateway.status === GatewayStatus.OFFLINE) {
-      throw new Error('网关离线，无法下发配置')
-    }
-    if (gateway.status === GatewayStatus.TOKEN_EXPIRED) {
-      throw new Error('网关 Token 已失效，请更新后重试')
-    }
-    
-    // 3. 获取设备实例和模型
-    const instance = await getDeviceInstanceWithModel(deviceInstanceId)
-    if (!instance) throw new Error('设备实例不存在')
-    
-    // 4. 生成 Node-RED Flow
-    const flowConfig = generateNodeREDFlow(instance)
-    
-    // 5. 调用 Node-RED Admin API
-    const nodeRedUrl = `http://${gateway.address}:${gateway.port}/flows`
-    try {
-      await axios.post(nodeRedUrl, flowConfig.flows, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        timeout: 30000
-      })
-      
-      // 6. 更新实例状态
-      await updateDeviceInstanceStatus(deviceInstanceId, DeviceStatus.RUNNING)
-      
-      // 7. 创建成功记录
-      const record = await repository.createSyncRecord({
-        type: SyncType.DEPLOY,
-        gatewayId,
-        deviceInstanceId,
-        status: SyncStatus.SUCCESS,
-        payload: flowConfig
-      })
-      
-      return record
-    } catch (error: any) {
-      // 401 = Token 失效
-      if (error.response?.status === 401) {
-        await markGatewayTokenExpired(gatewayId)
-        throw new Error('网关 Token 已失效')
-      }
-      
-      // 其他错误，触发重试
-      return await handleDeployRetry(deviceInstanceId, gatewayId, flowConfig, error.message)
-    }
-  } finally {
-    await redisClient.del(lockKey)
-  }
-}
-
-const handleDeployRetry = async (
-  deviceInstanceId: string,
-  gatewayId: string,
-  flowConfig: any,
-  errorMessage: string,
-  attempt = 1
-): Promise<SyncRecord> => {
-  if (attempt > 3) {
-    // 重试次数用尽，标记失败
-    await updateDeviceInstanceStatus(deviceInstanceId, DeviceStatus.PENDING_SYNC)
-    return repository.createSyncRecord({
-      type: SyncType.DEPLOY,
-      gatewayId,
-      deviceInstanceId,
-      status: SyncStatus.FAILED,
-      message: errorMessage,
-      payload: flowConfig,
-      retryCount: 3
-    })
-  }
-  
-  // 创建重试记录
-  const record = await repository.createSyncRecord({
-    type: SyncType.DEPLOY,
-    gatewayId,
-    deviceInstanceId,
-    status: SyncStatus.PENDING,
-    message: `第${attempt}次重试等待中`,
-    payload: flowConfig,
-    retryCount: attempt
-  })
-  
-  // 安排延迟重试（实际应该用 BullMQ 或类似队列）
-  const delay = RETRY_CONFIG[attempt - 1].delay
-  // 这里简化处理，实际应该用定时任务
-  
-  return record
-}
-
-export const undeployConfig = async (dto: { deviceInstanceId: string; gatewayId: string }): Promise<SyncRecord> => {
-  const { deviceInstanceId, gatewayId } = dto
-  
-  const gateway = await getGatewayById(gatewayId)
-  if (!gateway) throw new Error('网关不存在')
-  
-  const instance = await getDeviceInstanceById(deviceInstanceId)
-  if (!instance) throw new Error('设备实例不存在')
-  
-  // 获取当前 flows 并移除该设备的节点
-  const nodeRedUrl = `http://${gateway.address}:${gateway.port}/flows`
-  
-  try {
-    const response = await axios.get(nodeRedUrl, { timeout: 10000 })
-    const currentFlows = response.data
-    
-    const baseId = instance.id.replace(/-/g, '')
-    const filteredFlows = currentFlows.filter((node: any) => !node.id?.startsWith(baseId))
-    
-    await axios.post(nodeRedUrl, filteredFlows, {
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      timeout: 10000
-    })
-    
-    // 更新实例状态
-    await updateDeviceInstanceStatus(deviceInstanceId, DeviceStatus.PENDING_SYNC)
-    
-    return repository.createSyncRecord({
-      type: SyncType.UNDEPLOY,
-      gatewayId,
-      deviceInstanceId,
-      status: SyncStatus.SUCCESS
-    })
-  } catch (error: any) {
-    return repository.createSyncRecord({
-      type: SyncType.UNDEPLOY,
-      gatewayId,
-      deviceInstanceId,
-      status: SyncStatus.FAILED,
-      message: error.message
-    })
-  }
 }

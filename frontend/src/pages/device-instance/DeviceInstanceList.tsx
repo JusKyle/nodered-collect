@@ -10,9 +10,8 @@ import ViewPointsModal from './ViewPointsModal'
 import DispatchConfirmBubble from '../sync/DispatchConfirmBubble'
 import UndispatchConfirmBubble from '../sync/UndispatchConfirmBubble'
 import SyncPointsConfirmBubble from './SyncPointsConfirmBubble'
+import DeviceDataPanel from './DeviceDataPanel'
 import type { DeviceInstance } from '../../types'
-
-type InstanceStatus = 'PENDING' | 'UNBOUND' | 'PENDING_SYNC' | 'RUNNING' | 'OFFLINE'
 
 function DeviceInstanceList() {
   const { deviceInstances, loading, fetchDeviceInstances } = useDeviceInstanceStore()
@@ -26,6 +25,7 @@ function DeviceInstanceList() {
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false)
   const [isUndispatchModalOpen, setIsUndispatchModalOpen] = useState(false)
   const [isSyncPointsModalOpen, setIsSyncPointsModalOpen] = useState(false)
+  const [isDataPanelOpen, setIsDataPanelOpen] = useState(false)
   const [selectedInstance, setSelectedInstance] = useState<DeviceInstance | null>(null)
 
   // 搜索和筛选状态
@@ -113,6 +113,11 @@ function DeviceInstanceList() {
     }
   }
 
+  const handleViewData = (instance: DeviceInstance) => {
+    setSelectedInstance(instance)
+    setIsDataPanelOpen(true)
+  }
+
   const handleModalSuccess = () => {
     fetchDeviceInstances()
     setSelectedInstance(null)
@@ -179,6 +184,14 @@ function DeviceInstanceList() {
             onClick={() => handleDispatch(instance)}
           >
             下发配置
+          </button>
+        )}
+        {(instance.status === 'RUNNING' || instance.status === 'ONLINE') && (
+          <button
+            className="text-purple-600 hover:text-purple-900 mr-4"
+            onClick={() => handleViewData(instance)}
+          >
+            查看数据
           </button>
         )}
         {canUndispatch(instance.status) && (
@@ -309,6 +322,15 @@ function DeviceInstanceList() {
           <SyncPointsConfirmBubble
             instance={selectedInstance}
             onSyncSuccess={handleModalSuccess}
+          />
+
+          <DeviceDataPanel
+            isOpen={isDataPanelOpen}
+            onClose={() => {
+              setIsDataPanelOpen(false)
+              setSelectedInstance(null)
+            }}
+            instance={selectedInstance!}
           />
         </>
       )}
