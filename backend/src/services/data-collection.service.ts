@@ -55,6 +55,19 @@ export const handleDeviceData = async (
   await updateLatestCache(resolvedInstanceId, payload)
 }
 
+const ensureRedisConnected = async (): Promise<boolean> => {
+  if (!redisClient.isReady) {
+    try {
+      await redisClient.connect()
+      console.log('Redis reconnected')
+      return true
+    } catch {
+      return false
+    }
+  }
+  return true
+}
+
 // ============================================================
 // 2. 数据缓冲写入
 // ============================================================
@@ -62,6 +75,7 @@ const bufferDataPoints = async (
   deviceInstanceId: string,
   payload: DataPointPayload
 ): Promise<void> => {
+  if (!await ensureRedisConnected()) return
   const { gatewayId, timestamp, points } = payload
 
   // 优先用 payload 中的 gatewayId，否则从 DB 查
@@ -100,6 +114,7 @@ const bufferDataPoints = async (
 export const startBufferFlush = (): NodeJS.Timeout => {
   return setInterval(async () => {
     try {
+      if (!await ensureRedisConnected()) return
       const gatewayKeys = await redisClient.keys(`${BUFFER_KEY_PREFIX}*`)
       for (const key of gatewayKeys) {
         const gatewayId = key.replace(BUFFER_KEY_PREFIX, '')
@@ -112,6 +127,7 @@ export const startBufferFlush = (): NodeJS.Timeout => {
 }
 
 const flushGatewayBuffer = async (gatewayId: string): Promise<void> => {
+  if (!await ensureRedisConnected()) return
   const key = `${BUFFER_KEY_PREFIX}${gatewayId}`
   const rawPoints: string[] = []
 
@@ -155,6 +171,7 @@ const updateLatestCache = async (
   deviceInstanceId: string,
   payload: DataPointPayload
 ): Promise<void> => {
+  if (!await ensureRedisConnected()) return
   const { timestamp, points } = payload
 
   for (const point of points) {
@@ -223,6 +240,7 @@ export const getLatestPointValue = async (
   deviceInstanceId: string,
   pointCode: string
 ): Promise<{ value: string; dataType: string; quality: number; timestamp: number } | null> => {
+  if (!await ensureRedisConnected()) return null
   const key = `${LATEST_KEY_PREFIX}${deviceInstanceId}:${pointCode}`
   const data = await redisClient.get(key)
   if (!data) return null
