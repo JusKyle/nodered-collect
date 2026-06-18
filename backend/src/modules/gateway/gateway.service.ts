@@ -44,9 +44,22 @@ export const testConnection = async (
   dto: TestConnectionDto
 ): Promise<{ success: boolean; tokenExpired: boolean; message: string }> => {
   try {
-    const response = await axios.get(`http://${dto.address}:${dto.port}/`, {
+    let address = dto.address
+    let port = dto.port
+    let adminToken = dto.adminToken
+
+    if (dto.gatewayId) {
+      const gateway = await repository.getGatewayById(dto.gatewayId)
+      if (gateway) {
+        address = gateway.address
+        port = gateway.port
+        adminToken = gateway.adminToken
+      }
+    }
+
+    const response = await axios.get(`http://${address}:${port}/`, {
       headers: {
-        'Authorization': `Bearer ${dto.adminToken}`
+        'Authorization': `Bearer ${adminToken}`
       },
       timeout: 5000
     })

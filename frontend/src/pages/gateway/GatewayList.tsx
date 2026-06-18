@@ -78,9 +78,6 @@ function GatewayList() {
     try {
       const result = await gatewayApi.testConnection({
         gatewayId: gateway.id,
-        address: gateway.address,
-        port: gateway.port,
-        adminToken: gateway.adminToken
       })
       let message = ''
       if (result.tokenExpired) {
