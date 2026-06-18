@@ -9,4 +9,6 @@ deviceInstanceRouter.get('/gateway/:gatewayId', controller.getDeviceInstancesByG
 deviceInstanceRouter.post('/', controller.createDeviceInstance)
 deviceInstanceRouter.post('/batch', controller.batchCreateDeviceInstances)
 deviceInstanceRouter.put('/:id', controller.updateDeviceInstance)
+deviceInstanceRouter.put('/:id/gateway', controller.changeGateway)
+deviceInstanceRouter.put('/:id/sync-points', controller.syncPoints)
 deviceInstanceRouter.delete('/:id', controller.deleteDeviceInstance)

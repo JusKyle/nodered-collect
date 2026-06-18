@@ -38,3 +38,26 @@ export const updateDeviceInstance = async (
 export const deleteDeviceInstance = async (id: string): Promise<DeviceInstance> => {
   return repository.deleteDeviceInstance(id)
 }
+
+export const changeGateway = async (id: string, gatewayId: string): Promise<DeviceInstance> => {
+  return repository.changeGateway(id, gatewayId)
+}
+
+export const syncPoints = async (id: string): Promise<DeviceInstance> => {
+  const instanceWithModel = await repository.getDeviceInstanceWithModel(id)
+  if (!instanceWithModel || !instanceWithModel.model) {
+    throw new Error('Instance or model not found')
+  }
+
+  // Merge points: update inherited points from model, keep custom points
+  const modelPoints = (instanceWithModel.model.points as any[]) || []
+  const customPoints = (instanceWithModel.config as any)?.customPoints || []
+
+  // Merge: modelPoints update, customPoints retained
+  const mergedConfig = {
+    points: modelPoints,
+    customPoints
+  }
+
+  return repository.updateInstanceConfig(id, mergedConfig)
+}

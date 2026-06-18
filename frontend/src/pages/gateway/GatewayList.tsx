@@ -1,15 +1,50 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useGatewayStore } from '../../stores/gateway.store'
 import DataTable from '../../components/DataTable'
 import StatusBadge from '../../components/StatusBadge'
+import GatewayCreateModal from './GatewayCreateModal'
+import GatewayEditModal from './GatewayEditModal'
+import RegistrationCodeModal from './RegistrationCodeModal'
+import DeleteConfirmBubble from './DeleteConfirmBubble'
+import * as gatewayApi from '../../api/gateway.api'
+import type { Gateway } from '../../types'
 
 function GatewayList() {
   const { gateways, loading, fetchGateways } = useGatewayStore()
   const [searchTerm, setSearchTerm] = useState('')
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isRegistrationCodeModalOpen, setIsRegistrationCodeModalOpen] = useState(false)
+  const [selectedGateway, setSelectedGateway] = useState<Gateway | null>(null)
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const startAutoRefresh = useCallback(() => {
+    if (intervalRef.current) return
+    intervalRef.current = setInterval(() => {
+      fetchGateways()
+    }, 5000)
+  }, [fetchGateways])
+
+  const stopAutoRefresh = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }, [])
 
   useEffect(() => {
     fetchGateways()
   }, [fetchGateways])
+
+  useEffect(() => {
+    if (autoRefresh) {
+      startAutoRefresh()
+    } else {
+      stopAutoRefresh()
+    }
+    return () => stopAutoRefresh()
+  }, [autoRefresh, startAutoRefresh, stopAutoRefresh])
 
   const filteredGateways = gateways.filter(
     (gateway) =>
@@ -26,6 +61,48 @@ function GatewayList() {
     { key: 'actions', label: '操作' },
   ]
 
+  const [testConnLoading, setTestConnLoading] = useState<string | null>(null)
+  const [testConnResult, setTestConnResult] = useState<{ id: string; success: boolean; message: string } | null>(null)
+
+  const handleEditClick = (gateway: Gateway) => {
+    setSelectedGateway(gateway)
+    setIsEditModalOpen(true)
+  }
+
+  const handleTestConnection = async (gateway: Gateway) => {
+    setTestConnLoading(gateway.id)
+    setTestConnResult(null)
+    try {
+      const result = await gatewayApi.testConnection({
+        gatewayId: gateway.id,
+        address: gateway.address,
+        port: gateway.port,
+        adminToken: gateway.adminToken
+      })
+      let message = ''
+      if (result.tokenExpired) {
+        message = 'Token 已过期'
+      } else if (result.success) {
+        message = '连接成功，状态已恢复'
+      } else {
+        message = '连接失败'
+      }
+      setTestConnResult({
+        id: gateway.id,
+        success: result.success,
+        message
+      })
+    } catch {
+      setTestConnResult({
+        id: gateway.id,
+        success: false,
+        message: '连接超时'
+      })
+    } finally {
+      setTestConnLoading(null)
+    }
+  }
+
   const renderRow = (gateway: typeof gateways[0]) => (
     <tr key={gateway.id} className="hover:bg-gray-50">
       <td className="px-6 py-4 whitespace-nowrap">
@@ -38,7 +115,15 @@ function GatewayList() {
         <div className="text-sm text-gray-500">{gateway.port}</div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <StatusBadge status={gateway.status} />
+        {gateway.status === 'TOKEN_EXPIRED' ? (
+          <StatusBadge
+            status={gateway.status}
+            onClick={() => handleEditClick(gateway)}
+            tooltip="点击更新 Token"
+          />
+        ) : (
+          <StatusBadge status={gateway.status} />
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="text-sm text-gray-500">
@@ -46,8 +131,35 @@ function GatewayList() {
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-        <button className="text-primary-600 hover:text-primary-900 mr-4">编辑</button>
-        <button className="text-red-600 hover:text-red-900">删除</button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => handleTestConnection(gateway)}
+            disabled={testConnLoading === gateway.id}
+            className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
+          >
+            {testConnLoading === gateway.id ? '测试中...' : '测试连接'}
+          </button>
+          <button
+            onClick={() => handleEditClick(gateway)}
+            className="text-primary-600 hover:text-primary-900"
+          >
+            编辑
+          </button>
+          <button
+            onClick={() => {
+              setSelectedGateway(gateway)
+            }}
+            className="text-purple-600 hover:text-purple-900"
+          >
+            已下发设备
+          </button>
+          <DeleteConfirmBubble gateway={gateway} onDelete={fetchGateways} />
+        </div>
+        {testConnResult?.id === gateway.id && (
+          <div className={`mt-1 text-xs ${testConnResult.success ? 'text-green-600' : 'text-red-600'}`}>
+            {testConnResult.message}
+          </div>
+        )}
       </td>
     </tr>
   )
@@ -72,10 +184,26 @@ function GatewayList() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <button className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors">
+          <button
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              autoRefresh
+                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {autoRefresh ? '暂停刷新' : '恢复刷新'}
+          </button>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+          >
             新建网关
           </button>
-          <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+          <button
+            onClick={() => setIsRegistrationCodeModalOpen(true)}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          >
             生成注册码
           </button>
         </div>
@@ -86,6 +214,25 @@ function GatewayList() {
         data={filteredGateways}
         renderRow={renderRow}
         loading={loading}
+      />
+
+      <GatewayCreateModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
+
+      <GatewayEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setSelectedGateway(null)
+        }}
+        gateway={selectedGateway}
+      />
+
+      <RegistrationCodeModal
+        isOpen={isRegistrationCodeModalOpen}
+        onClose={() => setIsRegistrationCodeModalOpen(false)}
       />
     </div>
   )

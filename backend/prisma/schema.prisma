@@ -28,20 +28,43 @@ enum GatewayStatus {
   ONLINE
   OFFLINE
   ERROR
+  TOKEN_EXPIRED
+}
+
+enum ModelStatus {
+  ENABLED
+  DISABLED
 }
 
 model DeviceModel {
   id          String          @id @default(cuid())
   name        String
+  vendor      String
+  model       String
   protocol    String
   description String?
-  points      Json
+  points      Json            @default("[]")
+  status      ModelStatus     @default(ENABLED)
+  version     String          @default("v1.0")
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
   deviceInstances DeviceInstance[]
+  versions        ModelVersion[]
 
-  @@unique([name, protocol])
+  @@unique([name, vendor, model])
+}
+
+model ModelVersion {
+  id          String      @id @default(cuid())
+  modelId     String
+  version     String
+  points      Json        @default("[]")
+  createdAt   DateTime    @default(now())
+
+  model       DeviceModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
 }
 
 model DeviceInstance {
@@ -50,7 +73,7 @@ model DeviceInstance {
   modelId         String
   gatewayId       String
   nodeId          String
-  config          Json
+  config          Json?
   status          DeviceStatus  @default(OFFLINE)
   lastSyncTime    DateTime?
   createdAt       DateTime      @default(now())
@@ -68,6 +91,10 @@ enum DeviceStatus {
   OFFLINE
   SYNCING
   ERROR
+  PENDING
+  UNBOUND
+  PENDING_SYNC
+  RUNNING
 }
 
 model SyncRecord {
@@ -86,6 +113,7 @@ model SyncRecord {
 
 enum SyncType {
   DEPLOY
+  UNDEPLOY
   HEARTBEAT
   CONFIG_SYNC
   DATA_UPLOAD

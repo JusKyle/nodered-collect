@@ -55,3 +55,24 @@ export const deleteDeviceInstance = async (req: Request, res: Response) => {
   const instance = await service.deleteDeviceInstance(id)
   res.json(instance)
 }
+
+export const changeGateway = async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { gatewayId } = req.body
+  if (!gatewayId) return res.status(400).json({ message: 'gatewayId is required' })
+  const instance = await service.changeGateway(id, gatewayId)
+  res.json(instance)
+}
+
+export const syncPoints = async (req: Request, res: Response) => {
+  const { id } = req.params
+  try {
+    const instance = await service.syncPoints(id)
+    res.json(instance)
+  } catch (error: any) {
+    if (error.message === 'Instance or model not found') {
+      return res.status(404).json({ message: error.message })
+    }
+    res.status(500).json({ message: error.message })
+  }
+}
