@@ -59,6 +59,21 @@ services:
       - emqx
     restart: unless-stopped
 
+  nodered:
+    image: nodered/node-red:latest
+    container_name: collecting-system-nodered
+    environment:
+      - TZ=Asia/Shanghai
+      - MQTT_HOST=emqx
+      - MQTT_PORT=1883
+    ports:
+      - "1880:1880"
+    volumes:
+      - nodered_data:/data
+    depends_on:
+      - emqx
+    restart: unless-stopped
+
   frontend:
     build:
       context: .
@@ -75,3 +90,4 @@ volumes:
   redis_data:
   emqx_data:
   emqx_log:
+  nodered_data:
