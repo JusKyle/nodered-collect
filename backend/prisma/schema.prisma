@@ -31,6 +31,11 @@ enum GatewayStatus {
   TOKEN_EXPIRED
 }
 
+enum ModelStatus {
+  ENABLED
+  DISABLED
+}
+
 model DeviceModel {
   id          String          @id @default(cuid())
   name        String
@@ -39,12 +44,27 @@ model DeviceModel {
   protocol    String
   description String?
   points      Json            @default("[]")
+  status      ModelStatus     @default(ENABLED)
+  version     String          @default("v1.0")
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
   deviceInstances DeviceInstance[]
+  versions        ModelVersion[]
 
   @@unique([name, vendor, model])
+}
+
+model ModelVersion {
+  id          String      @id @default(cuid())
+  modelId     String
+  version     String
+  points      Json        @default("[]")
+  createdAt   DateTime    @default(now())
+
+  model       DeviceModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([modelId])
 }
 
 model DeviceInstance {

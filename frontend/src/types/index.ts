@@ -19,6 +19,8 @@ export interface DeviceModel {
   protocol: string
   description: string | null
   points: Point[]
+  status: 'ENABLED' | 'DISABLED'
+  version: string
   createdAt: string
   updatedAt: string
 }
@@ -31,6 +33,14 @@ export interface Point {
   dataType: string
   unit?: string
   description?: string
+}
+
+export interface ModelVersion {
+  id: string
+  modelId: string
+  version: string
+  points: Point[]
+  createdAt: string
 }
 
 export interface DeviceInstance {
@@ -59,6 +69,14 @@ export interface SyncRecord {
   createdAt: string
   gateway?: Gateway
   deviceInstance?: DeviceInstance
+}
+
+export interface ModelVersion {
+  id: string
+  modelId: string
+  version: string
+  points: Point[]
+  createdAt: string
 }
 
 export interface RegistrationCode {

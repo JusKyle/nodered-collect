@@ -46,3 +46,36 @@ export const getDeviceModelUsage = async (req: Request, res: Response) => {
   const usage = await service.getDeviceModelUsage(id)
   res.json({ usage })
 }
+
+export const importPoints = async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { points } = req.body
+  if (!Array.isArray(points)) {
+    return res.status(400).json({ message: 'points must be an array' })
+  }
+  const model = await service.importPoints(id, points)
+  res.json(model)
+}
+
+export const duplicateModel = async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { newName } = req.body
+  const model = await service.duplicateModel(id, newName)
+  res.status(201).json(model)
+}
+
+export const getVersionHistory = async (req: Request, res: Response) => {
+  const { id } = req.params
+  const versions = await service.getVersionHistory(id)
+  res.json(versions)
+}
+
+export const updateModelStatus = async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { status } = req.body
+  if (status !== 'ENABLED' && status !== 'DISABLED') {
+    return res.status(400).json({ message: 'status must be ENABLED or DISABLED' })
+  }
+  const model = await service.updateModelStatus(id, status)
+  res.json(model)
+}
