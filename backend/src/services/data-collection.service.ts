@@ -1,5 +1,5 @@
 import { prisma } from '../config/db'
-import { redisClient } from '../config/redis'
+import { getRedisClient } from '../config/redis'
 import { DeviceStatus } from '@prisma/client'
 
 const BUFFER_KEY_PREFIX = 'data:buffer:'
@@ -31,40 +31,43 @@ interface BufferedPoint {
   quality: number
 }
 
-// ============================================================
-// 1. MQTT 消息处理入口
-// ============================================================
+const getClient = () => getRedisClient()
+
+const ensureConnected = async (): Promise<boolean> => {
+  const client = getClient()
+  if (!client.isReady) {
+    try {
+      await client.connect()
+      console.log('Redis reconnected')
+      return true
+    } catch {
+      return false
+    }
+  }
+  return true
+}
+
 export const handleDeviceData = async (
   deviceInstanceId: string,
   rawMessage: string
 ): Promise<void> => {
   const payload: DataPointPayload = JSON.parse(rawMessage)
-
-  // 解析出来的 instanceId 必须和 topic 里的匹配
   const resolvedInstanceId = payload.deviceInstanceId || deviceInstanceId
 
-  // 1) 更新实例数据时间 + 标记 ONLINE（异步不阻塞）
-  updateInstanceOnline(resolvedInstanceId).catch(() => {
-    // 实例不存在时静默忽略
-  })
-
-  // 2) 写入 Redis 缓冲
+  updateInstanceOnline(resolvedInstanceId).catch(() => {})
   await bufferDataPoints(resolvedInstanceId, payload)
-
-  // 3) 立即更新 Redis latest cache
   await updateLatestCache(resolvedInstanceId, payload)
 }
 
-// ============================================================
-// 2. 数据缓冲写入
-// ============================================================
 const bufferDataPoints = async (
   deviceInstanceId: string,
   payload: DataPointPayload
 ): Promise<void> => {
+  if (!await ensureConnected()) return
+
+  const client = getClient()
   const { gatewayId, timestamp, points } = payload
 
-  // 优先用 payload 中的 gatewayId，否则从 DB 查
   let resolvedGatewayId = gatewayId
   if (!resolvedGatewayId) {
     const instance = await prisma.deviceInstance.findUnique({
@@ -87,20 +90,20 @@ const bufferDataPoints = async (
       timestamp: new Date(timestamp).toISOString(),
       quality: point.quality ?? 0
     }
-    await redisClient.rPush(
+    await client.rPush(
       `${BUFFER_KEY_PREFIX}${resolvedGatewayId}`,
       JSON.stringify(buffered)
     )
   }
 }
 
-// ============================================================
-// 3. 定时批量 flush（每 5s 执行一次）
-// ============================================================
 export const startBufferFlush = (): NodeJS.Timeout => {
   return setInterval(async () => {
     try {
-      const gatewayKeys = await redisClient.keys(`${BUFFER_KEY_PREFIX}*`)
+      if (!await ensureConnected()) return
+
+      const client = getClient()
+      const gatewayKeys = await client.keys(`${BUFFER_KEY_PREFIX}*`)
       for (const key of gatewayKeys) {
         const gatewayId = key.replace(BUFFER_KEY_PREFIX, '')
         await flushGatewayBuffer(gatewayId)
@@ -112,12 +115,14 @@ export const startBufferFlush = (): NodeJS.Timeout => {
 }
 
 const flushGatewayBuffer = async (gatewayId: string): Promise<void> => {
+  if (!await ensureConnected()) return
+
+  const client = getClient()
   const key = `${BUFFER_KEY_PREFIX}${gatewayId}`
   const rawPoints: string[] = []
 
-  // 批量取出，最多 500 条/次
   while (rawPoints.length < 500) {
-    const item = await redisClient.lPop(key)
+    const item = await client.lPop(key)
     if (!item) break
     rawPoints.push(item)
   }
@@ -141,25 +146,24 @@ const flushGatewayBuffer = async (gatewayId: string): Promise<void> => {
     })
   } catch (err) {
     console.error(`Failed to flush buffer for gateway ${gatewayId}`, err)
-    // 回推缓冲
     for (const raw of rawPoints.reverse()) {
-      await redisClient.lPush(key, raw)
+      await client.lPush(key, raw)
     }
   }
 }
 
-// ============================================================
-// 4. Redis latest cache（支撑快速查询）
-// ============================================================
 const updateLatestCache = async (
   deviceInstanceId: string,
   payload: DataPointPayload
 ): Promise<void> => {
+  if (!await ensureConnected()) return
+
+  const client = getClient()
   const { timestamp, points } = payload
 
   for (const point of points) {
     const key = `${LATEST_KEY_PREFIX}${deviceInstanceId}:${point.code}`
-    await redisClient.set(
+    await client.set(
       key,
       JSON.stringify({
         value: point.value,
@@ -172,9 +176,6 @@ const updateLatestCache = async (
   }
 }
 
-// ============================================================
-// 5. 实例在线状态更新
-// ============================================================
 const updateInstanceOnline = async (deviceInstanceId: string): Promise<void> => {
   await prisma.deviceInstance.update({
     where: { id: deviceInstanceId },
@@ -185,9 +186,6 @@ const updateInstanceOnline = async (deviceInstanceId: string): Promise<void> => 
   })
 }
 
-// ============================================================
-// 6. 数据超时检测（实例 OFFLINE 判定）
-// ============================================================
 export const startOfflineChecker = (): NodeJS.Timeout => {
   return setInterval(async () => {
     try {
@@ -216,15 +214,15 @@ export const startOfflineChecker = (): NodeJS.Timeout => {
   }, 30 * 1000)
 }
 
-// ============================================================
-// 7. 读取 Redis latest cache（供 API 层降级查询用）
-// ============================================================
 export const getLatestPointValue = async (
   deviceInstanceId: string,
   pointCode: string
 ): Promise<{ value: string; dataType: string; quality: number; timestamp: number } | null> => {
+  if (!await ensureConnected()) return null
+
+  const client = getClient()
   const key = `${LATEST_KEY_PREFIX}${deviceInstanceId}:${pointCode}`
-  const data = await redisClient.get(key)
+  const data = await client.get(key)
   if (!data) return null
   return JSON.parse(data)
 }

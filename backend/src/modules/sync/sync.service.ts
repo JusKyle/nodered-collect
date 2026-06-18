@@ -6,11 +6,9 @@ import { CreateSyncRecordDto, DeployConfigDto } from './sync.dto'
 import { getGatewayById } from '../gateway/gateway.service'
 import { getDeviceInstanceById, updateDeviceInstance } from '../device-instance/device-instance.service'
 import { markGatewayTokenExpired } from '../../services/heartbeat.service'
-import { redisClient } from '../../config/redis'
+import { getRedisClient } from '../../config/redis'
 
-// ============================================================
-// 1. 网关基础流（心跳 + 配置监听 + MQTT broker 配置）
-// ============================================================
+const getClient = () => getRedisClient()
 
 export const generateGatewayBaseFlow = (gateway: any): any => {
   const gwId = gateway.id.replace(/-/g, '')
@@ -28,7 +26,6 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
 
   const gatewayInfo = JSON.stringify({ id: gateway.id, name: gateway.name })
 
-  // 1) 心跳触发
   nodes.push({
     id: heartbeatInjectId,
     type: 'inject',
@@ -46,7 +43,6 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
   })
   y += 80
 
-  // 2) 心跳组装
   nodes.push({
     id: heartbeatFuncId,
     type: 'function',
@@ -64,7 +60,6 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
   })
   y += 80
 
-  // 3) 心跳 mqtt out
   nodes.push({
     id: heartbeatOutId,
     type: 'mqtt out',
@@ -80,7 +75,6 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
   })
   y += 120
 
-  // 4) 配置下发监听
   nodes.push({
     id: configInId,
     type: 'mqtt in',
@@ -96,7 +90,6 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
   })
   y += 80
 
-  // 5) HTTP request 触发部署
   nodes.push({
     id: configHttpId,
     type: 'http request',
@@ -113,7 +106,6 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
   })
   y += 80
 
-  // 6) 下发结果回传
   nodes.push({
     id: configResultId,
     type: 'mqtt out',
@@ -128,13 +120,11 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
     wires: []
   })
 
-  // 接线
   nodes[0].wires = [[heartbeatFuncId]]
   nodes[1].wires = [[heartbeatOutId]]
   nodes[3].wires = [[configHttpId]]
   nodes[4].wires = [[configResultId]]
 
-  // MQTT broker 配置节点
   const brokerConfig = {
     id: brokerId,
     type: 'mqtt-broker',
@@ -155,10 +145,6 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
   return [...nodes, brokerConfig]
 }
 
-// ============================================================
-// 2. 设备实例采集流
-// ============================================================
-
 export const generateDeviceFlowNodes = (instance: any): any[] => {
   const model = instance.model
   const protocol = (model?.protocol || 's7').toLowerCase()
@@ -175,7 +161,6 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
   const intervalId = baseId + '-interval'
   const brokerId = 'mqtt-broker-' + (instance.gatewayId || '').replace(/-/g, '')
 
-  // mqtt out（数据上报）
   nodes.push({
     id: mqttOutId,
     type: 'mqtt out',
@@ -191,7 +176,6 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
   })
   y += 80
 
-  // debug
   nodes.push({
     id: debugId,
     type: 'debug',
@@ -207,7 +191,6 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
   })
   y += 80
 
-  // inject（采集周期）
   nodes.push({
     id: intervalId,
     type: 'inject',
@@ -225,7 +208,6 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
   })
   y += 80
 
-  // 协议节点
   let protocolOutIds: string[] = []
 
   if (protocol === 's7') {
@@ -299,13 +281,10 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
   return nodes
 }
 
-// ============================================================
-// 3. 下发网关基础流
-// ============================================================
-
 export const deployGatewayBaseFlow = async (gateway: any): Promise<SyncRecord> => {
   const lockKey = 'sync:dispatching:baseflow:' + gateway.id
-  const locked = await redisClient.set(lockKey, '1', { NX: true, EX: 60 })
+  const client = getClient()
+  const locked = await client.set(lockKey, '1', { NX: true, EX: 60 })
   if (!locked) {
     throw new Error('基础流下发进行中，请稍后再试')
   }
@@ -336,19 +315,16 @@ export const deployGatewayBaseFlow = async (gateway: any): Promise<SyncRecord> =
       throw error
     }
   } finally {
-    await redisClient.del(lockKey)
+    await client.del(lockKey)
   }
 }
-
-// ============================================================
-// 4. 下发设备实例配置
-// ============================================================
 
 export const deployConfig = async (dto: DeployConfigDto): Promise<SyncRecord> => {
   const { deviceInstanceId, gatewayId } = dto
 
   const lockKey = 'sync:dispatching:' + deviceInstanceId
-  const locked = await redisClient.set(lockKey, '1', { NX: true, EX: 60 })
+  const client = getClient()
+  const locked = await client.set(lockKey, '1', { NX: true, EX: 60 })
   if (!locked) {
     throw new Error('下发进行中，请稍后再试')
   }
@@ -387,7 +363,6 @@ export const deployConfig = async (dto: DeployConfigDto): Promise<SyncRecord> =>
       currentFlows = []
     }
 
-    // 补基础流（如果没有）
     const gwId = gateway.id.replace(/-/g, '')
     const hasBaseFlow = currentFlows.some((n: any) => n.id?.includes('hb-inject-' + gwId))
     if (!hasBaseFlow) {
@@ -395,11 +370,9 @@ export const deployConfig = async (dto: DeployConfigDto): Promise<SyncRecord> =>
       currentFlows = [...currentFlows, ...baseNodes]
     }
 
-    // 移除该实例旧节点
     const baseId = deviceInstanceId.replace(/-/g, '')
     currentFlows = currentFlows.filter((n: any) => !n.id?.startsWith(baseId))
 
-    // 追加新设备节点
     const newNodes = generateDeviceFlowNodes(instance)
     const finalFlows = [...currentFlows, ...newNodes]
 
@@ -426,7 +399,7 @@ export const deployConfig = async (dto: DeployConfigDto): Promise<SyncRecord> =>
       return await handleDeployRetry(deviceInstanceId, gatewayId, finalFlows, error.message)
     }
   } finally {
-    await redisClient.del(lockKey)
+    await client.del(lockKey)
   }
 }
 

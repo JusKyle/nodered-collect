@@ -33,8 +33,10 @@ export const useGatewayStore = create<GatewayStore>((set) => ({
     try {
       const gateway = await gatewayApi.createGateway(data)
       set((state) => ({ gateways: [...state.gateways, gateway], loading: false }))
+      return gateway
     } catch (error: any) {
       set({ error: error.message, loading: false })
+      throw error
     }
   },
 

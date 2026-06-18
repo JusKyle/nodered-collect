@@ -80,13 +80,28 @@ function GatewayCreateModal({ isOpen, onClose }: GatewayCreateModalProps) {
 
   const onSubmit = async (data: FormData) => {
     try {
-      await createGateway({
+      const createdGateway = await createGateway({
         name: data.name,
         address: data.address,
         port: data.port,
         adminToken: data.adminToken,
       })
       await fetchGateways()
+
+      try {
+        const result = await testConnection({
+          gatewayId: createdGateway.id,
+          address: data.address,
+          port: data.port,
+          adminToken: data.adminToken,
+        })
+        if (result.success) {
+          await fetchGateways()
+        }
+      } catch {
+        console.log('自动测试连接失败，稍后可手动测试')
+      }
+
       handleClose()
     } catch (error: any) {
       console.error('创建网关失败:', error)

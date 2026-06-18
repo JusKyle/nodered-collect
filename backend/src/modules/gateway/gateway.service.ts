@@ -4,7 +4,9 @@ import * as repository from './gateway.repository'
 import { CreateGatewayDto, UpdateGatewayDto, TestConnectionDto } from './gateway.dto'
 import { markGatewayTokenExpired } from '../../services/heartbeat.service'
 import { deployGatewayBaseFlow } from '../sync/sync.service'
-import { redisClient } from '../../config/redis'
+import { getRedisClient } from '../../config/redis'
+
+const getClient = () => getRedisClient()
 
 export const createGateway = async (dto: CreateGatewayDto): Promise<Gateway> => {
   return repository.createGateway({
@@ -30,7 +32,8 @@ export const updateGateway = async (
   if (dto.adminToken !== undefined) {
     const existingGateway = await repository.getGatewayById(id)
     if (existingGateway && existingGateway.adminToken !== dto.adminToken) {
-      await redisClient.del(`token_expired:${id}`)
+      const client = getClient()
+      await client.del(`token_expired:${id}`)
     }
   }
   return repository.updateGateway(id, dto)
@@ -44,16 +47,30 @@ export const testConnection = async (
   dto: TestConnectionDto
 ): Promise<{ success: boolean; tokenExpired: boolean; message: string }> => {
   try {
-    const response = await axios.get(`http://${dto.address}:${dto.port}/`, {
+    let address = dto.address
+    let port = dto.port
+    let adminToken = dto.adminToken
+
+    if (dto.gatewayId) {
+      const gateway = await repository.getGatewayById(dto.gatewayId)
+      if (gateway) {
+        address = gateway.address
+        port = gateway.port
+        adminToken = gateway.adminToken
+      }
+    }
+
+    const response = await axios.get(`http://${address}:${port}/`, {
       headers: {
-        'Authorization': `Bearer ${dto.adminToken}`
+        'Authorization': `Bearer ${adminToken}`
       },
       timeout: 5000
     })
 
     if (response.status === 200) {
       if (dto.gatewayId) {
-        await redisClient.del(`token_expired:${dto.gatewayId}`)
+        const client = getClient()
+        await client.del(`token_expired:${dto.gatewayId}`)
         const gateway = await repository.getGatewayById(dto.gatewayId)
         if (
           gateway &&
@@ -65,7 +82,6 @@ export const testConnection = async (
           })
         }
 
-        // 关键：测试连接成功后，下发网关基础流（心跳 + 配置监听节点）
         try {
           if (gateway) {
             await deployGatewayBaseFlow(gateway)
