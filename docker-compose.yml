@@ -41,8 +41,8 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: ../deployment/docker/backend/Dockerfile
+      context: .
+      dockerfile: deployment/docker/backend/Dockerfile
     container_name: collecting-system-backend
     environment:
       DATABASE_URL: postgresql://admin:password@postgres:5432/collecting_system?schema=public
@@ -50,6 +50,7 @@ services:
       MQTT_HOST: emqx
       MQTT_PORT: 1883
       JWT_SECRET: your-jwt-secret-key
+      NODE_ENV: production
     ports:
       - "3000:3000"
     depends_on:
@@ -60,8 +61,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: ../deployment/docker/frontend/Dockerfile
+      context: .
+      dockerfile: deployment/docker/frontend/Dockerfile
     container_name: collecting-system-frontend
     ports:
       - "80:80"
