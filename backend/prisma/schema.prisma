@@ -28,6 +28,7 @@ enum GatewayStatus {
   ONLINE
   OFFLINE
   ERROR
+  TOKEN_EXPIRED
 }
 
 model DeviceModel {

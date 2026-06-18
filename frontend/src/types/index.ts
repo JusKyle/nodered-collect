@@ -4,7 +4,7 @@ export interface Gateway {
   address: string
   port: number
   adminToken: string
-  status: 'ONLINE' | 'OFFLINE' | 'ERROR'
+  status: 'ONLINE' | 'OFFLINE' | 'ERROR' | 'TOKEN_EXPIRED'
   lastHeartbeat: string | null
   createdAt: string
   updatedAt: string

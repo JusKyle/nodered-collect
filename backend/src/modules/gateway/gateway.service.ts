@@ -1,7 +1,8 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 import { Gateway } from '@prisma/client'
 import * as repository from './gateway.repository'
 import { CreateGatewayDto, UpdateGatewayDto, TestConnectionDto } from './gateway.dto'
+import { markGatewayTokenExpired } from '../../services/heartbeat.service'
 
 export const createGateway = async (dto: CreateGatewayDto): Promise<Gateway> => {
   return repository.createGateway({
