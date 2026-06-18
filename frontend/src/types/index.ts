@@ -63,15 +63,16 @@ export interface DeviceInstance {
 
 export interface SyncRecord {
   id: string
-  type: 'DEPLOY' | 'HEARTBEAT' | 'CONFIG_SYNC' | 'DATA_UPLOAD'
+  type: 'DEPLOY' | 'UNDEPLOY' | 'REDEPLOY'
   gatewayId: string
-  deviceInstanceId: string | null
-  status: 'PENDING' | 'SUCCESS' | 'FAILED'
-  message: string | null
-  payload: Record<string, any> | null
+  gateway?: { id: string; name: string }
+  deviceInstanceId?: string
+  deviceInstance?: { id: string; name: string }
+  status: 'SUCCESS' | 'FAILED' | 'PENDING'
+  message?: string
+  payload?: any
+  retryCount?: number
   createdAt: string
-  gateway?: Gateway
-  deviceInstance?: DeviceInstance
 }
 
 export interface ModelVersion {
@@ -89,4 +90,30 @@ export interface RegistrationCode {
   expiresAt: string
   used: boolean
   createdAt: string
+}
+
+export interface SyncStatusData {
+  gatewayId: string
+  gatewayName: string
+  gatewayStatus: 'ONLINE' | 'OFFLINE' | 'TOKEN_EXPIRED'
+  dataReportStatus: 'normal' | 'abnormal'
+  mqttConnectionStatus: 'connected' | 'disconnected'
+  lastReportTime: string
+  todayReportCount: number
+  cacheCount: number
+  resyncProgress?: {
+    total: number
+    completed: number
+    status: 'in_progress' | 'completed' | 'partial_failed'
+    failedCount: number
+  }
+}
+
+export interface CacheProgressData {
+  gatewayId: string
+  gatewayName: string
+  total: number
+  completed: number
+  status: 'in_progress' | 'completed' | 'partial_failed'
+  failedCount: number
 }

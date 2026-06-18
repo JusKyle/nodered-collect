@@ -7,3 +7,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+namespace NodeJS {
+  interface Timeout {
+    ref(): Timeout
+    unref(): Timeout
+  }
+}

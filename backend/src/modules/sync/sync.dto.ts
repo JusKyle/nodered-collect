@@ -11,7 +11,7 @@ export const createSyncRecordDto = z.object({
 
 export const deployConfigDto = z.object({
   gatewayId: z.string(),
-  deviceInstanceId: z.string().optional()
+  deviceInstanceId: z.string()
 })
 
 export type CreateSyncRecordDto = z.infer<typeof createSyncRecordDto>

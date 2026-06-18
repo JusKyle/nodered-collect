@@ -15,9 +15,8 @@ function DispatchLogDetailModal({ syncRecord, isOpen, onClose }: DispatchLogDeta
 
   const typeLabels: Record<string, string> = {
     DEPLOY: '配置下发',
-    HEARTBEAT: '心跳',
-    CONFIG_SYNC: '配置同步',
-    DATA_UPLOAD: '数据上传',
+    UNDEPLOY: '取消部署',
+    REDEPLOY: '重新部署'
   }
 
   const formatJson = (data: Record<string, any> | null) => {
