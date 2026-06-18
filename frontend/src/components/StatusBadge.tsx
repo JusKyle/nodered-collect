@@ -1,8 +1,12 @@
+import type { ReactNode, MouseEvent } from 'react'
+
 interface StatusBadgeProps {
   status: string
+  onClick?: (e: MouseEvent<HTMLSpanElement>) => void
+  tooltip?: string
 }
 
-function StatusBadge({ status }: StatusBadgeProps) {
+function StatusBadge({ status, onClick, tooltip }: StatusBadgeProps) {
   const statusConfig: Record<string, { dot: string; bg: string; text: string; label: string }> = {
     ONLINE: { dot: 'bg-green-500', bg: 'bg-green-100', text: 'text-green-700', label: '在线' },
     OFFLINE: { dot: 'bg-gray-400', bg: 'bg-gray-100', text: 'text-gray-600', label: '离线' },
@@ -15,15 +19,19 @@ function StatusBadge({ status }: StatusBadgeProps) {
   }
 
   const config = statusConfig[status] || { dot: 'bg-gray-400', bg: 'bg-gray-100', text: 'text-gray-600', label: status }
+  const isClickable = !!onClick
+  const cursorClass = isClickable ? 'cursor-pointer' : ''
 
-  return (
-    <span className="inline-flex items-center gap-1.5">
+  let content: ReactNode = (
+    <span className={`inline-flex items-center gap-1.5 ${cursorClass}`} onClick={onClick} title={tooltip}>
       <span className={`w-2 h-2 rounded-full ${config.dot}`} />
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
         {config.label}
       </span>
     </span>
   )
+
+  return content
 }
 
 export default StatusBadge

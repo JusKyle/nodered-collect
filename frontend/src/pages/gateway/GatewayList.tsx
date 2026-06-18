@@ -73,15 +73,24 @@ function GatewayList() {
     setTestConnLoading(gateway.id)
     setTestConnResult(null)
     try {
-      const success = await gatewayApi.testConnection({
+      const result = await gatewayApi.testConnection({
+        gatewayId: gateway.id,
         address: gateway.address,
         port: gateway.port,
         adminToken: gateway.adminToken
       })
+      let message = ''
+      if (result.tokenExpired) {
+        message = 'Token 已过期'
+      } else if (result.success) {
+        message = '连接成功，状态已恢复'
+      } else {
+        message = '连接失败'
+      }
       setTestConnResult({
         id: gateway.id,
-        success,
-        message: success ? '连接成功' : '连接失败'
+        success: result.success,
+        message
       })
     } catch {
       setTestConnResult({
@@ -106,7 +115,15 @@ function GatewayList() {
         <div className="text-sm text-gray-500">{gateway.port}</div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <StatusBadge status={gateway.status} />
+        {gateway.status === 'TOKEN_EXPIRED' ? (
+          <StatusBadge
+            status={gateway.status}
+            onClick={() => handleEditClick(gateway)}
+            tooltip="点击更新 Token"
+          />
+        ) : (
+          <StatusBadge status={gateway.status} />
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="text-sm text-gray-500">

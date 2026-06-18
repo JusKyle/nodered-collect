@@ -10,6 +10,7 @@ interface GatewayStore {
   createGateway: (data: { name: string; address: string; port?: number; adminToken: string }) => Promise<void>
   updateGateway: (id: string, data: Partial<Gateway>) => Promise<void>
   deleteGateway: (id: string) => Promise<void>
+  testConnection: (data: { gatewayId?: string; address: string; port?: number; adminToken: string }) => Promise<{ success: boolean; tokenExpired: boolean; message: string }>
 }
 
 export const useGatewayStore = create<GatewayStore>((set) => ({
@@ -61,5 +62,9 @@ export const useGatewayStore = create<GatewayStore>((set) => ({
     } catch (error: any) {
       set({ error: error.message, loading: false })
     }
+  },
+
+  testConnection: async (data) => {
+    return await gatewayApi.testConnection(data)
   }
 }))

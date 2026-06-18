@@ -35,11 +35,17 @@ export const deleteGateway = async (id: string): Promise<Gateway> => {
 }
 
 export const testConnection = async (data: {
+  gatewayId?: string
   address: string
   port?: number
   adminToken: string
-}): Promise<{ success: boolean }> => {
+}): Promise<{ success: boolean; tokenExpired: boolean; message: string }> => {
   const response = await api.post('/gateways/test-connection', data)
+  return response.data
+}
+
+export const updateGatewayStatus = async (id: string, status: string): Promise<Gateway> => {
+  const response = await api.put(`/gateways/${id}/status`, { status })
   return response.data
 }
 

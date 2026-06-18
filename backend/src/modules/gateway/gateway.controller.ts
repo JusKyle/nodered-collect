@@ -47,5 +47,15 @@ export const testConnection = async (req: Request, res: Response) => {
     return res.status(400).json(validation.error)
   }
   const result = await service.testConnection(validation.data)
-  res.json({ success: result })
+  res.json(result)
+}
+
+export const updateGatewayStatus = async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { status } = req.body
+  if (!status) {
+    return res.status(400).json({ message: 'status is required' })
+  }
+  const gateway = await service.updateGateway(id, { status })
+  res.json(gateway)
 }
