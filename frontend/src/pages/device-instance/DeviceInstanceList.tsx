@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useDeviceInstanceStore } from '../../stores/device-instance.store'
 import DataTable from '../../components/DataTable'
 import StatusBadge from '../../components/StatusBadge'
@@ -14,6 +15,7 @@ import DeviceDataPanel from './DeviceDataPanel'
 import type { DeviceInstance } from '../../types'
 
 function DeviceInstanceList() {
+  const [searchParams] = useSearchParams()
   const { deviceInstances, loading, fetchDeviceInstances } = useDeviceInstanceStore()
 
   // 弹窗状态管理
@@ -28,8 +30,9 @@ function DeviceInstanceList() {
   const [isDataPanelOpen, setIsDataPanelOpen] = useState(false)
   const [selectedInstance, setSelectedInstance] = useState<DeviceInstance | null>(null)
 
-  // 搜索和筛选状态
-  const [searchTerm, setSearchTerm] = useState('')
+  // 搜索和筛选状态（从 URL 参数初始化）
+  const gatewayFromUrl = searchParams.get('gateway') || ''
+  const [searchTerm, setSearchTerm] = useState(gatewayFromUrl)
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
   useEffect(() => {

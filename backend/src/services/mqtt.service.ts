@@ -19,10 +19,10 @@ export const subscribeToTopic = (topic: string, callback: (topic: string, messag
 const topicMatches = (receivedTopic: string, subscribedTopic: string): boolean => {
   const receivedParts = receivedTopic.split('/')
   const subscribedParts = subscribedTopic.split('/')
-  if (receivedParts.length !== subscribedParts.length) return false
+  if (receivedParts.length !== subscribedParts.length && !subscribedTopic.includes('#')) return false
   for (let i = 0; i < subscribedParts.length; i++) {
-    if (subscribedParts[i] === '+') continue
     if (subscribedParts[i] === '#') return true
+    if (subscribedParts[i] === '+') continue
     if (subscribedParts[i] !== receivedParts[i]) return false
   }
   return true

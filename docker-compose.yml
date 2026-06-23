@@ -12,7 +12,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -21,7 +20,6 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    restart: unless-stopped
 
   emqx:
     image: emqx:5
@@ -37,7 +35,20 @@ services:
     volumes:
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
-    restart: unless-stopped
+
+  nodered:
+    image: nodered/node-red:latest
+    container_name: collecting-system-nodered
+    environment:
+      - TZ=Asia/Shanghai
+      - MQTT_HOST=emqx
+      - MQTT_PORT=1883
+    ports:
+      - "1880:1880"
+    volumes:
+      - nodered_data:/data
+    depends_on:
+      - emqx
 
   backend:
     build:
@@ -57,24 +68,7 @@ services:
       - postgres
       - redis
       - emqx
-    restart: unless-stopped
 
-  nodered:
-    build:
-      context: .
-      dockerfile: deployment/docker/nodered/Dockerfile
-    container_name: collecting-system-nodered
-    environment:
-      - TZ=Asia/Shanghai
-      - MQTT_HOST=emqx
-      - MQTT_PORT=1883
-    ports:
-      - "1880:1880"
-    volumes:
-      - nodered_data:/data
-    depends_on:
-      - emqx
-    restart: unless-stopped
 
   frontend:
     build:
@@ -85,7 +79,6 @@ services:
       - "80:80"
     depends_on:
       - backend
-    restart: unless-stopped
 
 volumes:
   postgres_data:

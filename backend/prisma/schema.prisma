@@ -20,6 +20,7 @@ model Gateway {
   nodeRedVersion    String?
   ip                String?
   flowCount         Int?
+  cacheEnabled      Boolean        @default(true)  // 网关级缓存开关
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
@@ -83,6 +84,7 @@ model DeviceInstance {
   status          DeviceStatus  @default(OFFLINE)
   lastSyncTime    DateTime?
   lastDataTime    DateTime?
+  cacheEnabled    Boolean?       // 设备级缓存开关（可选，覆盖网关设置）
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

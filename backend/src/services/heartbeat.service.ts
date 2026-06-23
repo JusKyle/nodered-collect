@@ -1,6 +1,7 @@
 import { prisma } from '../config/db'
 import { GatewayStatus } from '@prisma/client'
 import { getRedisClient } from '../config/redis'
+import { sseService } from './sse.service'
 
 const HEARTBEAT_KEY_PREFIX = 'heartbeat:'
 const TOKEN_EXPIRED_KEY_PREFIX = 'token_expired:'
@@ -52,9 +53,21 @@ export const handleHeartbeat = async (gatewayId: string, rawMessage?: string) =>
   if (ip) updateData.ip = ip
   if (flowCount !== null) updateData.flowCount = flowCount
 
-  await prisma.gateway.update({
+  const updated = await prisma.gateway.update({
     where: { id: gatewayId },
     data: updateData
+  })
+
+  sseService.broadcast({
+    type: 'gateway_status_change',
+    data: {
+      gatewayId: updated.id,
+      status: updated.status,
+      lastHeartbeat: updated.lastHeartbeat,
+      ip: updated.ip || undefined,
+      flowCount: updated.flowCount ?? undefined,
+      nodeRedVersion: updated.nodeRedVersion || undefined
+    }
   })
 }
 
@@ -64,9 +77,18 @@ export const markGatewayTokenExpired = async (gatewayId: string) => {
     EX: 86400
   })
 
-  await prisma.gateway.update({
+  const updated = await prisma.gateway.update({
     where: { id: gatewayId },
     data: { status: GatewayStatus.TOKEN_EXPIRED }
+  })
+
+  sseService.broadcast({
+    type: 'gateway_status_change',
+    data: {
+      gatewayId: updated.id,
+      status: updated.status,
+      lastHeartbeat: updated.lastHeartbeat
+    }
   })
 }
 
@@ -84,24 +106,48 @@ export const checkGatewayStatus = async () => {
 
     if (!heartbeatTimestamp) {
       if (gateway.status === GatewayStatus.ONLINE) {
-        await prisma.gateway.update({
+        const updated = await prisma.gateway.update({
           where: { id: gateway.id },
           data: { status: GatewayStatus.OFFLINE }
+        })
+        sseService.broadcast({
+          type: 'gateway_status_change',
+          data: {
+            gatewayId: updated.id,
+            status: updated.status,
+            lastHeartbeat: updated.lastHeartbeat
+          }
         })
       }
     } else {
       const delta = Date.now() - parseInt(heartbeatTimestamp, 10)
       if (delta > timeout) {
         if (gateway.status !== GatewayStatus.OFFLINE) {
-          await prisma.gateway.update({
+          const updated = await prisma.gateway.update({
             where: { id: gateway.id },
             data: { status: GatewayStatus.OFFLINE }
           })
+          sseService.broadcast({
+            type: 'gateway_status_change',
+            data: {
+              gatewayId: updated.id,
+              status: updated.status,
+              lastHeartbeat: updated.lastHeartbeat
+            }
+          })
         }
       } else if (gateway.status === GatewayStatus.OFFLINE) {
-        await prisma.gateway.update({
+        const updated = await prisma.gateway.update({
           where: { id: gateway.id },
           data: { status: GatewayStatus.ONLINE }
+        })
+        sseService.broadcast({
+          type: 'gateway_status_change',
+          data: {
+            gatewayId: updated.id,
+            status: updated.status,
+            lastHeartbeat: updated.lastHeartbeat
+          }
         })
       }
     }

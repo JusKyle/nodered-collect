@@ -24,7 +24,15 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
   const configResultId = `cfg-result-${gwId}`
   const brokerId = `mqtt-broker-${gwId}`
 
-  const gatewayInfo = JSON.stringify({ id: gateway.id, name: gateway.name })
+  const gatewayInfo = JSON.stringify({
+    id: gateway.id,
+    name: gateway.name,
+    nodeRedVersion: gateway.nodeRedVersion || null,
+    ip: gateway.ip || gateway.address,
+    flowCount: nodes.length + 1
+  })
+  const nodeRedMqttHost = process.env.NODE_RED_MQTT_HOST || 'emqx'
+  const nodeRedMqttPort = parseInt(process.env.NODE_RED_MQTT_PORT || process.env.MQTT_PORT || '1883')
 
   nodes.push({
     id: heartbeatInjectId,
@@ -48,7 +56,7 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
     type: 'function',
     z: '',
     name: 'assemble-heartbeat',
-    func: 'msg.payload = { gatewayId: ' + gatewayInfo + '.id, timestamp: Date.now(), status: "online" }; return msg;',
+    func: `const gateway = ${gatewayInfo};\nmsg.payload = {\n  gatewayId: gateway.id,\n  timestamp: Date.now(),\n  status: 'online',\n  nodeRedVersion: gateway.nodeRedVersion,\n  ip: gateway.ip,\n  flowCount: gateway.flowCount\n};\nreturn msg;`,
     outputs: 1,
     noerr: 0,
     initialize: '',
@@ -129,8 +137,8 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
     id: brokerId,
     type: 'mqtt-broker',
     name: 'EMQX Broker',
-    broker: process.env.MQTT_HOST || 'emqx',
-    port: parseInt(process.env.MQTT_PORT || '1883'),
+    broker: nodeRedMqttHost,
+    port: nodeRedMqttPort,
     clientid: 'nodered-gw-' + gwId,
     autoConnect: true,
     usetls: false,

@@ -9,6 +9,7 @@ interface GatewayStore {
   fetchGateways: () => Promise<void>
   createGateway: (data: { name: string; address: string; port?: number; adminToken: string }) => Promise<void>
   updateGateway: (id: string, data: Partial<Gateway>) => Promise<void>
+  updateGatewayStatus: (id: string, status: string, extra?: Partial<Gateway>) => void
   deleteGateway: (id: string) => Promise<void>
   testConnection: (data: { gatewayId?: string; address: string; port?: number; adminToken: string }) => Promise<{ success: boolean; tokenExpired: boolean; message: string }>
 }
@@ -51,6 +52,18 @@ export const useGatewayStore = create<GatewayStore>((set) => ({
     } catch (error: any) {
       set({ error: error.message, loading: false })
     }
+  },
+
+  updateGatewayStatus: (id, status, extra) => {
+    const cleanedExtra = Object.fromEntries(
+      Object.entries(extra || {}).filter(([, value]) => value !== undefined)
+    ) as Partial<Gateway>
+
+    set((state) => ({
+      gateways: state.gateways.map((g) =>
+        g.id === id ? { ...g, status: status as any, ...cleanedExtra } : g
+      )
+    }))
   },
 
   deleteGateway: async (id) => {

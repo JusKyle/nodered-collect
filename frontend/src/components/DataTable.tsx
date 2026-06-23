@@ -10,7 +10,7 @@ interface DataTableProps {
 
 function DataTable({ columns, data, renderRow, loading, emptyText = '暂无数据' }: DataTableProps) {
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="bg-white rounded-lg shadow overflow-visible">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">

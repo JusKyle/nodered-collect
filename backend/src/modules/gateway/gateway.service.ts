@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import { Gateway, GatewayStatus } from '@prisma/client'
+import { sseService } from '../../services/sse.service'
 import * as repository from './gateway.repository'
 import { CreateGatewayDto, UpdateGatewayDto, TestConnectionDto } from './gateway.dto'
 import { markGatewayTokenExpired } from '../../services/heartbeat.service'
@@ -67,6 +68,18 @@ export const testConnection = async (
       timeout: 5000
     })
 
+    let nodeRedVersion: string | undefined
+    try {
+      const settingsResponse = await axios.get(`http://${address}:${port}/settings`, {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        },
+        timeout: 5000
+      })
+      nodeRedVersion = settingsResponse.data?.version
+    } catch {
+    }
+
     if (response.status === 200) {
       if (dto.gatewayId) {
         const client = getClient()
@@ -75,16 +88,37 @@ export const testConnection = async (
         if (
           gateway &&
           (gateway.status === GatewayStatus.TOKEN_EXPIRED ||
-            gateway.status === GatewayStatus.OFFLINE)
+            gateway.status === GatewayStatus.OFFLINE ||
+            gateway.status === GatewayStatus.ONLINE)
         ) {
-          await repository.updateGateway(dto.gatewayId, {
-            status: GatewayStatus.ONLINE
+          await client.set(
+            `heartbeat:${dto.gatewayId}`,
+            Date.now().toString(),
+            { EX: 240 }
+          )
+          const updatedGateway = await repository.updateGateway(dto.gatewayId, {
+            status: GatewayStatus.ONLINE,
+            lastHeartbeat: new Date(),
+            ip: gateway.address,
+            nodeRedVersion
+          })
+          sseService.broadcast({
+            type: 'gateway_status_change',
+            data: {
+              gatewayId: updatedGateway.id,
+              status: updatedGateway.status,
+              lastHeartbeat: updatedGateway.lastHeartbeat,
+              ip: updatedGateway.ip || updatedGateway.address,
+              flowCount: updatedGateway.flowCount ?? undefined,
+              nodeRedVersion: updatedGateway.nodeRedVersion || undefined
+            }
           })
         }
 
         try {
           if (gateway) {
-            await deployGatewayBaseFlow(gateway)
+            const latestGateway = await repository.getGatewayById(dto.gatewayId)
+            await deployGatewayBaseFlow(latestGateway || gateway)
           }
         } catch (err) {
           console.error(`Failed to deploy base flow for gateway ${dto.gatewayId}`, err)
