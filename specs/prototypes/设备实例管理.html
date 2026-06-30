@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备实例管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366F1',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+        /* 抽屉动画 */
+        .drawer { transform: translateX(100%); transition: transform 0.3s ease-in-out; }
+        .drawer.open { transform: translateX(0); }
+
+        /* 页面切换 */
+        .page { display: none; }
+        .page.active { display: block; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- ========== 实例列表页 ========== -->
+    <div id="listPage" class="page active">
+        <!-- 顶部导航 -->
+        <header class="bg-white border-b border-gray-200 shadow-sm">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                            <i class="fas fa-microchip text-white"></i>
+                        </div>
+                        <span class="text-lg font-bold text-gray-900">设备实例管理</span>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <nav class="flex gap-5 text-sm text-gray-600">
+                            <a href="边缘网关管理.html" class="hover:text-primary transition-colors">采集网关</a>
+                            <a href="注册码管理.html" class="hover:text-primary transition-colors">注册码</a>
+                            <a href="设备模型管理.html" class="hover:text-primary transition-colors">设备模型</a>
+                            <a href="设备实例管理.html" class="text-primary font-medium border-b-2 border-primary pb-1">设备实例</a>
+                            <a href="配置下发与同步.html" class="hover:text-primary transition-colors">配置记录</a>
+                            <a href="断网数据缓存.html" class="hover:text-primary transition-colors">系统配置</a>
+                        </nav>
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm text-gray-600">Admin</span>
+                            <div class="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-gray-600 text-sm"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 页面内容 -->
+        <main class="max-w-7xl mx-auto px-6 py-8">
+            <!-- 页面标题 -->
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">设备实例</h1>
+                    <p class="text-gray-500 mt-1">管理所有设备实例的创建、配置和数据采集</p>
+                </div>
+                <div class="flex gap-3">
+                    <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 font-medium flex items-center gap-2 shadow-sm" onclick="openModal('addInstanceModal')">
+                        <i class="fas fa-plus"></i>新增设备
+                    </button>
+                    <button class="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium flex items-center gap-2 shadow-sm" onclick="openModal('batchImportModal')">
+                        <i class="fas fa-upload"></i>批量导入
+                    </button>
+                </div>
+            </div>
+
+            <!-- 筛选卡片 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
+                <div class="flex gap-5 items-end">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">分组</label>
+                        <select class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option>全部</option>
+                            <option>工厂A</option>
+                            <option>仓库B</option>
+                            <option>车间C</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">模板名称</label>
+                        <select class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option>全部</option>
+                            <option>Modbus-Temperature-Sensor</option>
+                            <option>Modbus-PLC-Device</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">网关名称</label>
+                        <select class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option>全部</option>
+                            <option>工厂A-网关01</option>
+                            <option>仓库B-网关02</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">状态</label>
+                        <select class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option>全部</option>
+                            <option>在线</option>
+                            <option>离线</option>
+                            <option>采集中</option>
+                        </select>
+                    </div>
+                    <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">查询</button>
+                    <button class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm">重置</button>
+                </div>
+            </div>
+
+            <!-- 批量操作区 -->
+            <div id="batchOperations" class="bg-indigo-50 rounded-xl border border-indigo-200 p-4 mb-4 shadow-sm hidden">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-check-circle text-primary text-lg"></i>
+                        <span class="text-sm text-gray-700">已选择 <span class="font-semibold text-primary" id="selectedCount">0</span> 个实例</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium" onclick="openModal('batchAssignModal')">
+                            <i class="fas fa-share-nodes mr-1.5"></i>批量分配网关
+                        </button>
+                        <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium" onclick="openModal('batchChangeModal')">
+                            <i class="fas fa-exchange-alt mr-1.5"></i>批量变更网关
+                        </button>
+                        <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium" onclick="openModal('batchDeployModal')">
+                            <i class="fas fa-paper-plane mr-1.5"></i>批量下发
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据表格 -->
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200">
+                            <th class="w-12 px-5 py-3.5">
+                                <input type="checkbox" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary" id="selectAll" onchange="toggleSelectAll(this)">
+                            </th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">实例名称</th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">模板名称</th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">分组</th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">网关名称</th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">状态</th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100" id="instanceTableBody">
+                        <!-- 实例1：在线状态，已分配网关 -->
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="w-12 px-5 py-4">
+                                <input type="checkbox" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary instance-checkbox" onchange="updateBatchButtons()">
+                            </td>
+                            <td class="px-5 py-4">
+                                <a href="#" class="font-semibold text-gray-900 hover:text-primary" onclick="showDetailPage('temp-sensor-01')">温度传感器-01</a>
+                            </td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">Modbus-Temperature-Sensor</td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">工厂A</td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">工厂A-网关01</td>
+                            <td class="px-5 py-4"><span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">在线</span></td>
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-3 text-sm">
+                                    <button class="text-primary hover:text-indigo-800 font-medium" onclick="openDrawer('configParamsDrawer')">配置通信参数</button>
+                                    <button class="text-gray-500 hover:text-primary font-medium" onclick="openModal('changeGatewayModal')">变更网关</button>
+                                    <button class="text-gray-500 hover:text-primary font-medium" onclick="openDrawer('pointManagementDrawer')">点位管理</button>
+                                    <button class="text-primary hover:text-indigo-800 font-medium" onclick="openModal('syncVersionModal')">同步模板版本</button>
+                                    <button class="text-gray-500 hover:text-primary font-medium" onclick="deployConfig(this)">下发配置</button>
+                                    <button class="text-red-500 hover:text-red-700 font-medium" onclick="openModal('deleteModal')">删除</button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- 实例2：采集中状态 -->
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="w-12 px-5 py-4">
+                                <input type="checkbox" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary instance-checkbox" onchange="updateBatchButtons()">
+                            </td>
+                            <td class="px-5 py-4">
+                                <a href="#" class="font-semibold text-gray-900 hover:text-primary" onclick="showDetailPage('plc-device-01')">PLC设备-01</a>
+                            </td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">Modbus-PLC-Device</td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">工厂A</td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">工厂A-网关01</td>
+                            <td class="px-5 py-4"><span class="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium">采集中</span></td>
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-3 text-sm">
+                                    <button class="text-primary hover:text-indigo-800 font-medium" onclick="openDrawer('configParamsDrawer')">配置通信参数</button>
+                                    <button class="text-gray-500 hover:text-primary font-medium" onclick="openModal('changeGatewayModal')">变更网关</button>
+                                    <button class="text-gray-500 hover:text-primary font-medium" onclick="openDrawer('pointManagementDrawer')">点位管理</button>
+                                    <button class="text-gray-400 cursor-not-allowed font-medium" disabled>同步模板版本</button>
+                                    <button class="text-gray-500 hover:text-primary font-medium" onclick="deployConfig(this)">下发配置</button>
+                                    <button class="text-red-500 hover:text-red-700 font-medium" onclick="openModal('deleteModal')">删除</button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- 实例3：离线状态，未分配网关 -->
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="w-12 px-5 py-4">
+                                <input type="checkbox" class="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary instance-checkbox" onchange="updateBatchButtons()">
+                            </td>
+                            <td class="px-5 py-4">
+                                <a href="#" class="font-semibold text-gray-900 hover:text-primary" onclick="showDetailPage('humidity-sensor-01')">湿度传感器-01</a>
+                            </td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">Modbus-Temperature-Sensor</td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">仓库B</td>
+                            <td class="px-5 py-4"><span class="text-gray-400">未分配</span></td>
+                            <td class="px-5 py-4"><span class="px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">离线</span></td>
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-3 text-sm">
+                                    <button class="text-primary hover:text-indigo-800 font-medium" onclick="openDrawer('configParamsDrawer')">配置通信参数</button>
+                                    <button class="text-primary hover:text-indigo-800 font-medium" onclick="openModal('assignGatewayModal')">分配网关</button>
+                                    <button class="text-gray-500 hover:text-primary font-medium" onclick="openDrawer('pointManagementDrawer')">点位管理</button>
+                                    <button class="text-gray-400 cursor-not-allowed font-medium" disabled>同步模板版本</button>
+                                    <button class="text-gray-400 cursor-not-allowed font-medium" disabled>下发配置</button>
+                                    <button class="text-red-500 hover:text-red-700 font-medium" onclick="openModal('deleteModal')">删除</button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            <div class="flex justify-between items-center mt-5">
+                <div class="flex items-center gap-2 text-sm text-gray-500">
+                    <span>共</span>
+                    <span class="font-medium text-gray-900">3</span>
+                    <span>条记录</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button class="px-3 py-1.5 bg-white border border-gray-200 text-gray-400 rounded-lg cursor-not-allowed" disabled><i class="fas fa-chevron-left text-xs"></i></button>
+                    <button class="px-3 py-1.5 bg-primary text-white rounded-lg">1</button>
+                    <button class="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50"><i class="fas fa-chevron-right text-xs"></i></button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ========== 实例详情页 ========== -->
+    <div id="detailPage" class="page">
+        <!-- 顶部导航 -->
+        <header class="bg-white border-b border-gray-200 shadow-sm">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                            <i class="fas fa-microchip text-white"></i>
+                        </div>
+                        <span class="text-lg font-bold text-gray-900">设备实例管理</span>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <nav class="flex gap-5 text-sm text-gray-600">
+                            <a href="边缘网关管理.html" class="hover:text-primary transition-colors">采集网关</a>
+                            <a href="注册码管理.html" class="hover:text-primary transition-colors">注册码</a>
+                            <a href="设备模型管理.html" class="hover:text-primary transition-colors">设备模型</a>
+                            <a href="设备实例管理.html" class="text-primary font-medium border-b-2 border-primary pb-1">设备实例</a>
+                            <a href="配置下发与同步.html" class="hover:text-primary transition-colors">配置记录</a>
+                            <a href="断网数据缓存.html" class="hover:text-primary transition-colors">系统配置</a>
+                        </nav>
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm text-gray-600">Admin</span>
+                            <div class="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-gray-600 text-sm"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 页面内容 -->
+        <main class="max-w-7xl mx-auto px-6 py-8">
+            <!-- 返回按钮 -->
+            <button class="flex items-center gap-2 text-gray-600 hover:text-primary mb-6" onclick="showListPage()">
+                <i class="fas fa-arrow-left"></i>
+                <span>返回列表</span>
+            </button>
+
+            <!-- 页头区 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-3">
+                            <h1 class="text-2xl font-bold text-gray-900">温度传感器-01</h1>
+                            <span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">在线</span>
+                        </div>
+                        <div class="flex items-center gap-6 text-sm text-gray-600">
+                            <div><span class="text-gray-500">模板名称：</span>Modbus-Temperature-Sensor</div>
+                            <div><span class="text-gray-500">分组：</span>工厂A</div>
+                            <div><span class="text-gray-500">网关：</span>工厂A-网关01</div>
+                            <div><span class="text-gray-500">设备ID：</span>temp-sensor-01</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600 font-medium text-sm" onclick="openDrawer('configParamsDrawer')">配置通信参数</button>
+                        <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm" onclick="openModal('changeGatewayModal')">变更网关</button>
+                        <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm" onclick="openDrawer('pointManagementDrawer')">点位管理</button>
+                        <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm" onclick="deployConfig(this)">下发配置</button>
+                        <button class="px-4 py-2 bg-white border border-red-500 text-red-500 rounded-lg hover:bg-red-50 font-medium text-sm" onclick="openModal('deleteModal')">删除</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片网格 -->
+            <div class="grid grid-cols-2 gap-6 mb-6">
+                <!-- 通信参数卡片 -->
+                <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-gray-900">通信参数</h3>
+                        <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="openDrawer('configParamsDrawer')">
+                            <i class="fas fa-edit mr-1"></i>编辑
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">IP地址</p>
+                            <p class="text-sm font-medium text-gray-900">192.168.1.100</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">端口</p>
+                            <p class="text-sm font-medium text-gray-900">502</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">从站地址</p>
+                            <p class="text-sm font-medium text-gray-900">1</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">协议类型</p>
+                            <p class="text-sm font-medium text-gray-900">Modbus TCP</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 网关信息卡片 -->
+                <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-gray-900">网关信息</h3>
+                        <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="openModal('changeGatewayModal')">
+                            <i class="fas fa-exchange-alt mr-1"></i>变更网关
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">网关名称</p>
+                            <p class="text-sm font-medium text-primary cursor-pointer hover:text-indigo-600">工厂A-网关01</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">网关状态</p>
+                            <span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">在线</span>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">NR版本</p>
+                            <p class="text-sm font-medium text-gray-900">v3.1.2</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">最后心跳</p>
+                            <p class="text-sm font-medium text-gray-900">2026-06-30 14:30:25</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 采集状态卡片 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
+                <h3 class="text-lg font-bold text-gray-900 mb-4">采集状态</h3>
+                <div class="grid grid-cols-4 gap-6">
+                    <div class="text-center">
+                        <div class="text-xs text-gray-500 mb-2">当前状态</div>
+                        <div class="flex justify-center mb-2">
+                            <span class="px-3 py-1.5 bg-green-50 text-green-600 rounded-full text-sm font-medium">在线</span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs text-gray-500 mb-2">最后数据时间</div>
+                        <div class="text-lg font-bold text-gray-900">2026-06-30 14:30:25</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs text-gray-500 mb-2">点位总数</div>
+                        <div class="text-lg font-bold text-primary">12</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs text-gray-500 mb-2">采集正常点位数</div>
+                        <div class="text-lg font-bold text-green-600">12</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 点位实时值卡片 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
+                <h3 class="text-lg font-bold text-gray-900 mb-4">点位实时值</h3>
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200">
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">点位名称</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">当前值</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">单位</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">更新时间</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">来源</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900">温度值</td>
+                            <td class="px-4 py-3 text-sm text-primary font-bold">26.5</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">°C</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">2026-06-30 14:30:25</td>
+                            <td class="px-4 py-3"><span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-medium">模板级</span></td>
+                            <td class="px-4 py-3">
+                                <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="scrollToHistory()">历史数据</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900">湿度值</td>
+                            <td class="px-4 py-3 text-sm text-primary font-bold">65.2</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">%</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">2026-06-30 14:30:25</td>
+                            <td class="px-4 py-3"><span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-medium">模板级</span></td>
+                            <td class="px-4 py-3">
+                                <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="scrollToHistory()">历史数据</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900">设备状态</td>
+                            <td class="px-4 py-3 text-sm text-primary font-bold">1</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">-</td>
+                            <td class="px-4 py-3 text-sm text-gray-600">2026-06-30 14:30:25</td>
+                            <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs font-medium">设备级</span></td>
+                            <td class="px-4 py-3">
+                                <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="scrollToHistory()">历史数据</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 下发历史卡片 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
+                <h3 class="text-lg font-bold text-gray-900 mb-4">下发历史</h3>
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200">
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">下发时间</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">下发类型</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">下发状态</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">网关名称</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-sm text-gray-900">2026-06-30 14:25:10</td>
+                            <td class="px-4 py-3"><span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded text-xs font-medium">更新</span></td>
+                            <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs font-medium">成功</span></td>
+                            <td class="px-4 py-3 text-sm text-gray-600">工厂A-网关01</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-sm text-gray-900">2026-06-29 10:15:32</td>
+                            <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs font-medium">创建</span></td>
+                            <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs font-medium">成功</span></td>
+                            <td class="px-4 py-3 text-sm text-gray-600">工厂A-网关01</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 历史数据查询卡片 -->
+            <div id="historyCard" class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                <h3 class="text-lg font-bold text-gray-900 mb-4">历史数据查询</h3>
+                <!-- 筛选区 -->
+                <div class="flex gap-4 mb-6">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">选择点位</label>
+                        <select class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option>温度值</option>
+                            <option>湿度值</option>
+                            <option>设备状态</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2 items-end">
+                        <button class="px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">1小时</button>
+                        <button class="px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm">6小时</button>
+                        <button class="px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">24小时</button>
+                        <button class="px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm">7天</button>
+                        <button class="px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm">30天</button>
+                    </div>
+                    <div class="flex gap-2 items-end">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1.5">开始时间</label>
+                            <input type="datetime-local" class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1.5">结束时间</label>
+                            <input type="datetime-local" class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">查询</button>
+                    </div>
+                </div>
+
+                <!-- Tab切换 -->
+                <div class="border-b border-gray-200 mb-4">
+                    <nav class="flex gap-6">
+                        <button class="px-1 py-3 text-sm font-medium text-primary border-b-2 border-primary" onclick="switchHistoryTab('chart')">趋势图</button>
+                        <button class="px-1 py-3 text-sm font-medium text-gray-500 hover:text-gray-700" onclick="switchHistoryTab('table')">列表</button>
+                    </nav>
+                </div>
+
+                <!-- 趋势图区域 -->
+                <div id="historyChart" class="h-80 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-200">
+                    <div class="text-center text-gray-400">
+                        <i class="fas fa-chart-line text-4xl mb-2"></i>
+                        <p class="text-sm">趋势图区域（Chart.js / ECharts）</p>
+                    </div>
+                </div>
+
+                <!-- 列表区域 -->
+                <div id="historyTable" class="hidden">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200">
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">时间</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">点位名称</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">数值</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm text-gray-900">2026-06-30 14:30:00</td>
+                                <td class="px-4 py-3 text-sm text-gray-600">温度值</td>
+                                <td class="px-4 py-3 text-sm font-medium text-gray-900">26.5 °C</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm text-gray-900">2026-06-30 14:29:00</td>
+                                <td class="px-4 py-3 text-sm text-gray-600">温度值</td>
+                                <td class="px-4 py-3 text-sm font-medium text-gray-900">26.4 °C</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ========== 弹窗和抽屉 ========== -->
+
+    <!-- 新增设备弹窗 -->
+    <div id="addInstanceModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[520px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">新增设备</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('addInstanceModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">设备模板 <span class="text-red-500">*</span></label>
+                        <select class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">请选择设备模板</option>
+                            <option>Modbus-Temperature-Sensor</option>
+                            <option>Modbus-PLC-Device</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">设备ID <span class="text-red-500">*</span></label>
+                        <input type="text" placeholder="请输入设备ID，最多100字符" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">实例名称 <span class="text-red-500">*</span></label>
+                        <input type="text" placeholder="请输入实例名称，最多100字符" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">分组</label>
+                        <select class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">请选择分组</option>
+                            <option>工厂A</option>
+                            <option>仓库B</option>
+                            <option>车间C</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium" onclick="closeModal('addInstanceModal')">取消</button>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">确认创建</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量导入弹窗 -->
+    <div id="batchImportModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[520px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">批量导入设备实例</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('batchImportModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <div class="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <i class="fas fa-info-circle text-primary mt-0.5"></i>
+                        <div class="text-sm text-gray-700">
+                            <p class="font-medium mb-1">导入说明</p>
+                            <ul class="list-disc list-inside text-gray-600 space-y-1">
+                                <li>支持 Excel 格式（.xlsx, .xls）</li>
+                                <li>文件包含字段：设备ID、实例名称、分组、模板ID、网关ID、通信参数等</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <a href="#" class="text-primary hover:text-indigo-800 text-sm font-medium flex items-center gap-2">
+                        <i class="fas fa-download"></i>
+                        <span>下载模板</span>
+                    </a>
+                </div>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
+                    <p class="text-sm text-gray-600 mb-1">拖拽文件到这里，或点击上传</p>
+                    <p class="text-xs text-gray-400">支持 .xlsx, .xls 格式</p>
+                    <input type="file" class="hidden" accept=".xlsx,.xls">
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium" onclick="closeModal('batchImportModal')">取消</button>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">确认导入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 配置通信参数抽屉 -->
+    <div id="configParamsDrawer" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden z-50" onclick="closeDrawer('configParamsDrawer')">
+        <div class="absolute right-0 top-0 h-full w-[600px] bg-white shadow-2xl drawer" onclick="event.stopPropagation()">
+            <div class="h-full flex flex-col">
+                <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-gray-900">配置通信参数</h3>
+                    <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeDrawer('configParamsDrawer')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="flex-1 overflow-y-auto p-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">IP地址 <span class="text-red-500">*</span></label>
+                            <input type="text" placeholder="请输入IP地址或域名" value="192.168.1.100" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">端口 <span class="text-red-500">*</span></label>
+                            <input type="number" placeholder="请输入端口号" value="502" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">从站地址 <span class="text-red-500">*</span></label>
+                            <input type="number" placeholder="请输入从站地址 (1-255)" value="1" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <p class="text-xs text-gray-500 mt-1">Modbus 协议参数</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1.5">协议类型</label>
+                            <input type="text" value="Modbus TCP" disabled class="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500">
+                        </div>
+                    </div>
+                </div>
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                    <button class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium" onclick="closeDrawer('configParamsDrawer')">取消</button>
+                    <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分配网关弹窗 -->
+    <div id="assignGatewayModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[448px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">分配网关</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('assignGatewayModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">选择网关 <span class="text-red-500">*</span></label>
+                    <select class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="">请选择网关</option>
+                        <option>工厂A-网关01 (在线)</option>
+                        <option>仓库B-网关02 (离线)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium" onclick="closeModal('assignGatewayModal')">取消</button>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">确认分配</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量分配网关弹窗 -->
+    <div id="batchAssignModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[448px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">批量分配网关</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('batchAssignModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <p class="text-sm text-primary"><i class="fas fa-info-circle mr-2"></i>已选择 <span class="font-semibold">2</span> 个实例</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">选择网关 <span class="text-red-500">*</span></label>
+                    <select class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="">请选择网关</option>
+                        <option>工厂A-网关01 (在线)</option>
+                        <option>仓库B-网关02 (离线)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium" onclick="closeModal('batchAssignModal')">取消</button>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">确认分配</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 变更网关弹窗 -->
+    <div id="changeGatewayModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[448px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">变更网关</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('changeGatewayModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p class="text-sm text-yellow-700"><i class="fas fa-exclamation-triangle mr-2"></i>变更网关后需重新下发配置才能生效</p>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">当前网关</label>
+                        <input type="text" value="工厂A-网关01" disabled class="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">新网关 <span class="text-red-500">*</span></label>
+                        <select class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">请选择新网关</option>
+                            <option>仓库B-网关02 (离线)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium" onclick="closeModal('changeGatewayModal')">取消</button>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">确认变更</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量变更网关弹窗 -->
+    <div id="batchChangeModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[448px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">批量变更网关</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('batchChangeModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <p class="text-sm text-primary"><i class="fas fa-info-circle mr-2"></i>已选择 <span class="font-semibold">2</span> 个实例</p>
+                </div>
+                <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p class="text-sm text-yellow-700"><i class="fas fa-exclamation-triangle mr-2"></i>变更网关后需重新下发配置才能生效</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">新网关 <span class="text-red-500">*</span></label>
+                    <select class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="">请选择新网关</option>
+                        <option>工厂A-网关01 (在线)</option>
+                        <option>仓库B-网关02 (离线)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium" onclick="closeModal('batchChangeModal')">取消</button>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">确认变更</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量下发确认弹窗 -->
+    <div id="batchDeployModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[448px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">确认下发配置？</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('batchDeployModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-600">已选择 <span class="font-semibold text-gray-900">2</span> 个实例，确认下发配置到对应网关？</p>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium" onclick="closeModal('batchDeployModal')">取消</button>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">确认下发</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 点位管理抽屉 -->
+    <div id="pointManagementDrawer" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden z-50" onclick="closeDrawer('pointManagementDrawer')">
+        <div class="absolute right-0 top-0 h-full w-[800px] bg-white shadow-2xl drawer" onclick="event.stopPropagation()">
+            <div class="h-full flex flex-col">
+                <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-gray-900">点位管理</h3>
+                    <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeDrawer('pointManagementDrawer')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <!-- 点位列表 -->
+                <div class="flex-1 overflow-y-auto p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-sm font-medium text-gray-700">点位列表</h4>
+                        <button class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium flex items-center gap-2" onclick="addNewPointRow()">
+                            <i class="fas fa-plus"></i>新增点位
+                        </button>
+                    </div>
+                    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-50 border-b border-gray-200">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">点位名称</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">地址</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">数据类型</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">采集间隔</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">来源</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100" id="pointTableBody">
+                                <tr class="hover:bg-gray-50" id="point-row-1">
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">温度值</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">40001</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">Float</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">5秒</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-medium">模板级</span></td>
+                                    <td class="px-4 py-3">
+                                        <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="editPointRow(1, 'template')">编辑</button>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50" id="point-row-2">
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">湿度值</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">40003</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">Float</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">5秒</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-medium">模板级</span></td>
+                                    <td class="px-4 py-3">
+                                        <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="editPointRow(2, 'template')">编辑</button>
+                                    </td>
+                                </tr>
+                                <tr class="hover:bg-gray-50" id="point-row-3">
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">设备状态</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">40005</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">Int16</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">10秒</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs font-medium">设备级</span></td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-3">
+                                            <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="editPointRow(3, 'device')">编辑</button>
+                                            <button class="text-red-500 hover:text-red-700 text-sm font-medium" onclick="deletePointRow(3)">删除</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-xs text-gray-600"><i class="fas fa-info-circle text-primary mr-1"></i>修改模板级点位属性后，同步模板版本时会被模板最新版本覆盖</p>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                    <button class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium" onclick="closeDrawer('pointManagementDrawer')">取消</button>
+                    <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 同步模板版本确认弹窗 -->
+    <div id="syncVersionModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[448px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">同步模板最新版本？</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('syncVersionModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4 space-y-3">
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm text-gray-600">当前模板版本</span>
+                        <span class="text-sm font-medium text-gray-900">v1.0.0</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm text-gray-600">最新模板版本</span>
+                        <span class="text-sm font-medium text-primary">v1.2.0</span>
+                    </div>
+                </div>
+                <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-exclamation-triangle text-yellow-600 mt-0.5"></i>
+                        <div class="text-sm text-gray-700">
+                            <p class="font-medium mb-1">警告</p>
+                            <p class="text-gray-600">同步后，模板级点位的修改将被模板最新版本覆盖，设备级点位保留不变</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium" onclick="closeModal('syncVersionModal')">取消</button>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">确认同步</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[448px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">确定删除实例吗？</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('deleteModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-trash-alt text-red-500"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-900 font-semibold mb-1">确定删除实例「温度传感器-01」吗？</p>
+                        <p class="text-gray-500 text-sm">删除实例将从网关移除配置并删除平台记录，此操作不可恢复</p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium" onclick="closeModal('deleteModal')">取消</button>
+                <button class="px-5 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div id="toast" class="fixed top-6 right-6 bg-white border border-gray-200 rounded-xl shadow-xl px-5 py-4 hidden z-50">
+        <div class="flex items-center gap-3">
+            <i id="toastIcon" class="fas fa-check-circle text-green-500 text-lg"></i>
+            <span id="toastMessage" class="text-sm font-medium text-gray-900">操作成功</span>
+        </div>
+    </div>
+
+    <script>
+        // 页面切换
+        function showDetailPage(instanceId) {
+            event.preventDefault();
+            document.getElementById('listPage').classList.remove('active');
+            document.getElementById('detailPage').classList.add('active');
+        }
+
+        function showListPage() {
+            document.getElementById('detailPage').classList.remove('active');
+            document.getElementById('listPage').classList.add('active');
+        }
+
+        // 弹窗控制
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // 抽屉控制
+        function openDrawer(drawerId) {
+            const drawer = document.getElementById(drawerId);
+            drawer.classList.remove('hidden');
+            setTimeout(() => {
+                drawer.querySelector('.drawer').classList.add('open');
+            }, 10);
+        }
+
+        function closeDrawer(drawerId) {
+            const drawer = document.getElementById(drawerId);
+            drawer.querySelector('.drawer').classList.remove('open');
+            setTimeout(() => {
+                drawer.classList.add('hidden');
+            }, 300);
+        }
+
+        // 多选功能
+        function toggleSelectAll(checkbox) {
+            const checkboxes = document.querySelectorAll('.instance-checkbox');
+            checkboxes.forEach(cb => cb.checked = checkbox.checked);
+            updateBatchButtons();
+        }
+
+        function updateBatchButtons() {
+            const checkboxes = document.querySelectorAll('.instance-checkbox:checked');
+            const count = checkboxes.length;
+            const batchOps = document.getElementById('batchOperations');
+            const selectedCount = document.getElementById('selectedCount');
+
+            if (count > 0) {
+                batchOps.classList.remove('hidden');
+                selectedCount.textContent = count;
+            } else {
+                batchOps.classList.add('hidden');
+            }
+        }
+
+        // 下发配置
+        function deployConfig(button) {
+            const originalText = button.textContent;
+            button.textContent = '下发中...';
+            button.disabled = true;
+            button.classList.add('opacity-50', 'cursor-not-allowed');
+
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.disabled = false;
+                button.classList.remove('opacity-50', 'cursor-not-allowed');
+                showToast('下发成功', 'success');
+            }, 1500);
+        }
+
+        // Toast 提示
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastMessage.textContent = message;
+            if (type === 'success') {
+                toastIcon.className = 'fas fa-check-circle text-green-500 text-lg';
+            } else if (type === 'error') {
+                toastIcon.className = 'fas fa-times-circle text-red-500 text-lg';
+            } else if (type === 'warning') {
+                toastIcon.className = 'fas fa-exclamation-triangle text-yellow-500 text-lg';
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        let pointRowCounter = 3;
+        let editingRowId = null;
+
+        function getPointRowData(rowId) {
+            const row = document.getElementById('point-row-' + rowId);
+            if (!row) return null;
+            const cells = row.querySelectorAll('td');
+            return {
+                name: cells[0].textContent.trim(),
+                address: cells[1].textContent.trim(),
+                dataType: cells[2].textContent.trim(),
+                interval: cells[3].textContent.trim(),
+                source: cells[4].textContent.trim()
+            };
+        }
+
+        function editPointRow(rowId, sourceType) {
+            if (editingRowId !== null) {
+                showToast('请先保存当前编辑行', 'warning');
+                return;
+            }
+
+            const row = document.getElementById('point-row-' + rowId);
+            if (!row) return;
+
+            const data = getPointRowData(rowId);
+            window['originalPointData_' + rowId] = data;
+            editingRowId = rowId;
+
+            const intervalNum = data.interval.replace('秒', '');
+
+            row.innerHTML = `
+                <td class="px-4 py-3">
+                    <input type="text" value="${data.name}" class="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-primary focus:border-transparent" id="edit-name-${rowId}">
+                </td>
+                <td class="px-4 py-3">
+                    <input type="text" value="${data.address}" class="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-primary focus:border-transparent" id="edit-address-${rowId}">
+                </td>
+                <td class="px-4 py-3">
+                    <select class="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-primary focus:border-transparent" id="edit-datatype-${rowId}">
+                        <option value="Int16" ${data.dataType === 'Int16' ? 'selected' : ''}>Int16</option>
+                        <option value="Int32" ${data.dataType === 'Int32' ? 'selected' : ''}>Int32</option>
+                        <option value="Float" ${data.dataType === 'Float' ? 'selected' : ''}>Float</option>
+                        <option value="Double" ${data.dataType === 'Double' ? 'selected' : ''}>Double</option>
+                        <option value="Bool" ${data.dataType === 'Bool' ? 'selected' : ''}>Bool</option>
+                        <option value="String" ${data.dataType === 'String' ? 'selected' : ''}>String</option>
+                    </select>
+                </td>
+                <td class="px-4 py-3">
+                    <input type="number" value="${intervalNum}" min="1" class="w-full px-3 py-1.5 bg-gray-50 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-primary focus:border-transparent" id="edit-interval-${rowId}">
+                </td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-0.5 ${sourceType === 'template' ? 'bg-indigo-50 text-indigo-600' : 'bg-green-50 text-green-600'} rounded text-xs font-medium">${sourceType === 'template' ? '模板级' : '设备级'}</span>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="savePointRow(${rowId}, '${sourceType}')">保存</button>
+                        <button class="text-gray-500 hover:text-gray-700 text-sm font-medium" onclick="cancelEditPointRow(${rowId}, '${sourceType}')">取消</button>
+                    </div>
+                </td>
+            `;
+        }
+
+        function savePointRow(rowId, sourceType) {
+            const name = document.getElementById('edit-name-' + rowId).value.trim();
+            const address = document.getElementById('edit-address-' + rowId).value.trim();
+            const dataType = document.getElementById('edit-datatype-' + rowId).value;
+            const interval = document.getElementById('edit-interval-' + rowId).value.trim();
+
+            if (!name || !address || !interval) {
+                showToast('请填写完整信息', 'error');
+                return;
+            }
+
+            const row = document.getElementById('point-row-' + rowId);
+            const sourceBadge = sourceType === 'template'
+                ? '<span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-medium">模板级</span>'
+                : '<span class="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs font-medium">设备级</span>';
+
+            const actionButtons = sourceType === 'template'
+                ? `<button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="editPointRow(${rowId}, 'template')">编辑</button>`
+                : `<div class="flex items-center gap-3">
+                    <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="editPointRow(${rowId}, 'device')">编辑</button>
+                    <button class="text-red-500 hover:text-red-700 text-sm font-medium" onclick="deletePointRow(${rowId})">删除</button>
+                   </div>`;
+
+            row.innerHTML = `
+                <td class="px-4 py-3 text-sm font-medium text-gray-900">${name}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${address}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${dataType}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${interval}秒</td>
+                <td class="px-4 py-3">${sourceBadge}</td>
+                <td class="px-4 py-3">${actionButtons}</td>
+            `;
+
+            editingRowId = null;
+            showToast('保存成功', 'success');
+        }
+
+        function cancelEditPointRow(rowId, sourceType) {
+            if (window['newPointRow_' + rowId]) {
+                const row = document.getElementById('point-row-' + rowId);
+                row.remove();
+                delete window['newPointRow_' + rowId];
+            } else {
+                const originalData = window['originalPointData_' + rowId];
+                if (originalData) {
+                    const row = document.getElementById('point-row-' + rowId);
+                    const sourceBadge = sourceType === 'template'
+                        ? '<span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs font-medium">模板级</span>'
+                        : '<span class="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs font-medium">设备级</span>';
+
+                    const actionButtons = sourceType === 'template'
+                        ? `<button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="editPointRow(${rowId}, 'template')">编辑</button>`
+                        : `<div class="flex items-center gap-3">
+                            <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="editPointRow(${rowId}, 'device')">编辑</button>
+                            <button class="text-red-500 hover:text-red-700 text-sm font-medium" onclick="deletePointRow(${rowId})">删除</button>
+                           </div>`;
+
+                    row.innerHTML = `
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">${originalData.name}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${originalData.address}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${originalData.dataType}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${originalData.interval}</td>
+                        <td class="px-4 py-3">${sourceBadge}</td>
+                        <td class="px-4 py-3">${actionButtons}</td>
+                    `;
+                }
+            }
+            editingRowId = null;
+        }
+
+        function addNewPointRow() {
+            if (editingRowId !== null) {
+                showToast('请先保存当前编辑行', 'warning');
+                return;
+            }
+
+            pointRowCounter++;
+            const newRowId = pointRowCounter;
+            window['newPointRow_' + newRowId] = true;
+
+            const tbody = document.getElementById('pointTableBody');
+            const newRow = document.createElement('tr');
+            newRow.id = 'point-row-' + newRowId;
+            newRow.className = 'hover:bg-gray-50 bg-indigo-50/30';
+            newRow.innerHTML = `
+                <td class="px-4 py-3">
+                    <input type="text" placeholder="请输入点位名称" class="w-full px-3 py-1.5 bg-white border border-gray-200 rounded text-sm focus:ring-2 focus:ring-primary focus:border-transparent" id="edit-name-${newRowId}">
+                </td>
+                <td class="px-4 py-3">
+                    <input type="text" placeholder="请输入地址" class="w-full px-3 py-1.5 bg-white border border-gray-200 rounded text-sm focus:ring-2 focus:ring-primary focus:border-transparent" id="edit-address-${newRowId}">
+                </td>
+                <td class="px-4 py-3">
+                    <select class="w-full px-3 py-1.5 bg-white border border-gray-200 rounded text-sm focus:ring-2 focus:ring-primary focus:border-transparent" id="edit-datatype-${newRowId}">
+                        <option value="Int16">Int16</option>
+                        <option value="Int32">Int32</option>
+                        <option value="Float">Float</option>
+                        <option value="Double">Double</option>
+                        <option value="Bool">Bool</option>
+                        <option value="String">String</option>
+                    </select>
+                </td>
+                <td class="px-4 py-3">
+                    <input type="number" placeholder="秒" min="1" value="5" class="w-full px-3 py-1.5 bg-white border border-gray-200 rounded text-sm focus:ring-2 focus:ring-primary focus:border-transparent" id="edit-interval-${newRowId}">
+                </td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs font-medium">设备级</span>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="saveNewPointRow(${newRowId})">保存</button>
+                        <button class="text-gray-500 hover:text-gray-700 text-sm font-medium" onclick="cancelEditPointRow(${newRowId}, 'device')">取消</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(newRow);
+            editingRowId = newRowId;
+
+            document.getElementById('edit-name-' + newRowId).focus();
+        }
+
+        function saveNewPointRow(rowId) {
+            const name = document.getElementById('edit-name-' + rowId).value.trim();
+            const address = document.getElementById('edit-address-' + rowId).value.trim();
+            const dataType = document.getElementById('edit-datatype-' + rowId).value;
+            const interval = document.getElementById('edit-interval-' + rowId).value.trim();
+
+            if (!name || !address || !interval) {
+                showToast('请填写完整信息', 'error');
+                return;
+            }
+
+            const row = document.getElementById('point-row-' + rowId);
+            row.className = 'hover:bg-gray-50';
+            row.innerHTML = `
+                <td class="px-4 py-3 text-sm font-medium text-gray-900">${name}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${address}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${dataType}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${interval}秒</td>
+                <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs font-medium">设备级</span></td>
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <button class="text-primary hover:text-indigo-800 text-sm font-medium" onclick="editPointRow(${rowId}, 'device')">编辑</button>
+                        <button class="text-red-500 hover:text-red-700 text-sm font-medium" onclick="deletePointRow(${rowId})">删除</button>
+                    </div>
+                </td>
+            `;
+
+            delete window['newPointRow_' + rowId];
+            editingRowId = null;
+            showToast('新增成功', 'success');
+        }
+
+        function deletePointRow(rowId) {
+            if (confirm('确定要删除该点位吗？')) {
+                const row = document.getElementById('point-row-' + rowId);
+                if (row) {
+                    row.remove();
+                    showToast('删除成功', 'success');
+                }
+            }
+        }
+
+        // 历史数据 Tab 切换
+        function switchHistoryTab(tab) {
+            const chartDiv = document.getElementById('historyChart');
+            const tableDiv = document.getElementById('historyTable');
+            const buttons = document.getElementById('historyCard').querySelectorAll('nav button');
+
+            if (tab === 'chart') {
+                chartDiv.classList.remove('hidden');
+                tableDiv.classList.add('hidden');
+                buttons[0].className = 'px-1 py-3 text-sm font-medium text-primary border-b-2 border-primary';
+                buttons[1].className = 'px-1 py-3 text-sm font-medium text-gray-500 hover:text-gray-700';
+            } else {
+                chartDiv.classList.add('hidden');
+                tableDiv.classList.remove('hidden');
+                buttons[0].className = 'px-1 py-3 text-sm font-medium text-gray-500 hover:text-gray-700';
+                buttons[1].className = 'px-1 py-3 text-sm font-medium text-primary border-b-2 border-primary';
+            }
+        }
+
+        // 滚动到历史数据卡片
+        function scrollToHistory() {
+            const historyCard = document.getElementById('historyCard');
+            historyCard.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 点击弹窗外部关闭
+        document.querySelectorAll('.fixed.inset-0').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

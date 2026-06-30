@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册码管理 - 功能导向风格</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#059669',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-white min-h-screen">
+    <!-- 左侧边栏布局 -->
+    <div class="flex min-h-screen">
+        <!-- 左侧导航 -->
+        <aside class="w-64 bg-slate-900 text-white flex flex-col">
+            <div class="p-5 border-b border-slate-700">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-shield-alt text-emerald-400"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold">边缘网关平台</h1>
+                        <p class="text-xs text-slate-400">管理系统</p>
+                    </div>
+                </div>
+            </div>
+            <nav class="flex-1 p-4 space-y-1">
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+                    <i class="fas fa-server w-5"></i>边缘网关
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-slate-800 text-white">
+                    <i class="fas fa-key w-5 text-emerald-400"></i>注册码
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+                    <i class="fas fa-cube w-5"></i>设备模型
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+                    <i class="fas fa-microchip w-5"></i>设备实例
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+                    <i class="fas fa-file-alt w-5"></i>配置记录
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white">
+                    <i class="fas fa-cog w-5"></i>系统配置
+                </a>
+            </nav>
+            <div class="p-4 border-t border-slate-700">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-emerald-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-sm"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium">Admin</p>
+                        <p class="text-xs text-slate-400">系统管理员</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 右侧主内容 -->
+        <main class="flex-1 bg-slate-50">
+            <!-- 顶部 -->
+            <div class="bg-white border-b border-gray-200 px-6 py-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900">注册码管理</h2>
+                        <p class="text-sm text-gray-500 mt-0.5">批量生成并管理网关接入凭证</p>
+                    </div>
+                    <button class="px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium flex items-center gap-2" onclick="openModal('generateModal')">
+                        <i class="fas fa-plus"></i>批量生成
+                    </button>
+                </div>
+            </div>
+
+            <!-- 内容区 -->
+            <div class="p-6">
+                <!-- 筛选 -->
+                <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+                    <div class="flex gap-4 items-end">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">注册码</label>
+                            <input type="text" placeholder="输入注册码" 
+                                   class="w-[180px] px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">网关名称</label>
+                            <input type="text" placeholder="输入网关名称" 
+                                   class="w-[180px] px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">状态</label>
+                            <select class="w-[130px] px-3 py-2 border border-gray-300 rounded text-gray-600 text-sm">
+                                <option>全部</option>
+                                <option>未使用</option>
+                                <option>已使用</option>
+                                <option>已过期</option>
+                                <option>已作废</option>
+                            </select>
+                        </div>
+                        <button class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 text-sm">查询</button>
+                        <button class="px-4 py-2 border border-gray-300 text-gray-600 rounded hover:bg-gray-50 text-sm">重置</button>
+                    </div>
+                </div>
+
+                <!-- 表格 -->
+                <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <table class="w-full">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">注册码</th>
+                                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">状态</th>
+                                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">生成时间</th>
+                                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">过期时间</th>
+                                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">使用时间</th>
+                                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">绑定网关</th>
+                                <th class="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-5 py-4 text-gray-900 font-mono text-sm">A1B2C3D4-********</td>
+                                <td class="px-5 py-4"><span class="px-2.5 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">未使用</span></td>
+                                <td class="px-5 py-4 text-gray-600 text-sm">2026-06-25 10:30</td>
+                                <td class="px-5 py-4 text-gray-600 text-sm">2026-07-25 10:30</td>
+                                <td class="px-5 py-4 text-gray-400 text-sm">-</td>
+                                <td class="px-5 py-4 text-gray-400 text-sm">-</td>
+                                <td class="px-5 py-4"><button class="text-amber-600 hover:text-amber-800 text-sm font-medium" onclick="openModal('voidModal')">作废</button></td>
+                            </tr>
+                            <tr class="hover:bg-slate-50 cursor-pointer" onclick="openModal('detailModal')">
+                                <td class="px-5 py-4 text-gray-900 font-mono text-sm">E5F6G7H8-********</td>
+                                <td class="px-5 py-4"><span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold">已使用</span></td>
+                                <td class="px-5 py-4 text-gray-600 text-sm">2026-06-20 09:15</td>
+                                <td class="px-5 py-4 text-gray-600 text-sm">2026-07-20 09:15</td>
+                                <td class="px-5 py-4 text-gray-600 text-sm">2026-06-20 09:18</td>
+                                <td class="px-5 py-4 text-emerald-600 text-sm font-medium hover:underline">工厂A-网关01</td>
+                                <td class="px-5 py-4"><button class="text-amber-600 hover:text-amber-800 text-sm font-medium" onclick="event.stopPropagation();openModal('voidConfirmModal')">作废</button></td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-5 py-4 text-gray-900 font-mono text-sm">I9J0K1L2-********</td>
+                                <td class="px-5 py-4"><span class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded text-xs font-semibold">已过期</span></td>
+                                <td class="px-5 py-4 text-gray-600 text-sm">2026-05-01 08:00</td>
+                                <td class="px-5 py-4 text-gray-600 text-sm">2026-05-08 08:00</td>
+                                <td class="px-5 py-4 text-gray-400 text-sm">-</td>
+                                <td class="px-5 py-4 text-gray-400 text-sm">-</td>
+                                <td class="px-5 py-4 text-gray-400 text-sm">-</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-5 py-4 text-gray-900 font-mono text-sm">M3N4O5P6-********</td>
+                                <td class="px-5 py-4"><span class="px-2.5 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold">已作废</span></td>
+                                <td class="px-5 py-4 text-gray-600 text-sm">2026-06-15 14:20</td>
+                                <td class="px-5 py-4 text-gray-600 text-sm">2026-07-15 14:20</td>
+                                <td class="px-5 py-4 text-gray-600 text-sm">2026-06-15 14:25</td>
+                                <td class="px-5 py-4 text-gray-600 text-sm">仓库B-网关02</td>
+                                <td class="px-5 py-4"><button class="text-red-600 hover:text-red-800 text-sm font-medium" onclick="openModal('deleteModal')">删除</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                <div class="flex justify-between items-center mt-4 text-sm">
+                    <span class="text-gray-500">共 4 条记录</span>
+                    <div class="flex items-center gap-1">
+                        <button class="px-3 py-1.5 border border-gray-300 text-gray-400 cursor-not-allowed" disabled>&lt;</button>
+                        <button class="px-3 py-1.5 bg-emerald-600 text-white">1</button>
+                        <button class="px-3 py-1.5 border border-gray-300 text-gray-600 hover:bg-gray-50">&gt;</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 批量生成弹窗 -->
+    <div id="generateModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-2xl w-[420px]">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">批量生成注册码</h3>
+                <button class="text-gray-400 hover:text-gray-600" onclick="closeModal('generateModal')"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="p-6 space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">生成数量 <span class="text-red-500">*</span></label>
+                    <input type="number" value="1" min="1" max="50" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    <p class="text-xs text-gray-400 mt-1">范围: 1-50</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">有效期 <span class="text-red-500">*</span></label>
+                    <select class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                        <option>7 天</option>
+                        <option selected>30 天</option>
+                        <option>90 天</option>
+                        <option>180 天</option>
+                        <option>永不过期</option>
+                        <option>自定义</option>
+                    </select>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                <button class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" onclick="closeModal('generateModal')">取消</button>
+                <button class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700" onclick="closeModal('generateModal')">生成</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情弹窗 -->
+    <div id="detailModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-2xl w-[500px]">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">注册码详情</h3>
+                <button class="text-gray-400 hover:text-gray-600" onclick="closeModal('detailModal')"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="p-6">
+                <div class="bg-slate-50 rounded-lg p-5">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">注册码</p>
+                            <p class="text-gray-900 font-mono font-bold">E5F6G7H8-I9J0K1L2</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">状态</p>
+                            <span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold">已使用</span>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">绑定网关</p>
+                            <p class="text-gray-900 font-semibold">工厂A-网关01</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 mb-1">注册时间</p>
+                            <p class="text-gray-900">2026-06-20 09:18</p>
+                        </div>
+                        <div class="col-span-2">
+                            <p class="text-xs text-gray-500 mb-1">注册IP</p>
+                            <p class="text-gray-900">192.168.1.101</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t flex justify-end">
+                <button class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" onclick="closeModal('detailModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 作废弹窗（未使用） -->
+    <div id="voidModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-2xl w-[400px]">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">作废确认</h3>
+                <button class="text-gray-400 hover:text-gray-600" onclick="closeModal('voidModal')"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="p-6">
+                <div class="flex gap-4 mb-4">
+                    <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-amber-500 text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-900 font-semibold">确定要作废此注册码吗？</p>
+                        <p class="text-gray-500 text-sm mt-1">作废后，该注册码将无法再被使用。</p>
+                    </div>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-gray-500 mb-1">注册码</p>
+                    <p class="text-gray-900 font-mono">A1B2C3D4-********</p>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                <button class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" onclick="closeModal('voidModal')">取消</button>
+                <button class="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600" onclick="closeModal('voidModal')">确认作废</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 作废弹窗（已使用-二次确认） -->
+    <div id="voidConfirmModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-2xl w-[440px]">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">作废确认</h3>
+                <button class="text-gray-400 hover:text-gray-600" onclick="closeModal('voidConfirmModal')"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="p-6">
+                <div class="flex gap-4 mb-4">
+                    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-exclamation-circle text-red-500 text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-900 font-semibold">作废后，该网关将无法继续上报数据</p>
+                        <p class="text-red-600 text-sm font-semibold mt-1">确定要作废此注册码吗？</p>
+                    </div>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-3 space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-xs text-gray-500">注册码</span>
+                        <span class="text-gray-900 font-mono text-sm">E5F6G7H8-********</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-xs text-gray-500">绑定网关</span>
+                        <span class="text-gray-900 text-sm font-semibold">工厂A-网关01</span>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                <button class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" onclick="closeModal('voidConfirmModal')">取消</button>
+                <button class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700" onclick="closeModal('voidConfirmModal')">确认作废</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除弹窗 -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-2xl w-[400px]">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">删除确认</h3>
+                <button class="text-gray-400 hover:text-gray-600" onclick="closeModal('deleteModal')"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="p-6">
+                <div class="flex gap-4 mb-4">
+                    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-trash-alt text-red-500 text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-900 font-semibold">确定要删除此注册码吗？</p>
+                        <p class="text-red-600 text-sm font-semibold mt-1">删除后无法恢复。</p>
+                    </div>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-3">
+                    <p class="text-xs text-gray-500 mb-1">注册码</p>
+                    <p class="text-gray-900 font-mono">M3N4O5P6-********</p>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t flex justify-end gap-3">
+                <button class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" onclick="closeModal('deleteModal')">取消</button>
+                <button class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700" onclick="closeModal('deleteModal')">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
+        document.querySelectorAll('[id$="Modal"]').forEach(m => { m.addEventListener('click', e => { if(e.target===m) { m.classList.add('hidden'); m.classList.remove('flex'); } }); });
+    </script>
+</body>
+</html>

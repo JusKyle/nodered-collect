@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时状态推送 - SSE技术机制演示</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366F1',
+                        secondary: '#8B5CF6'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+            animation: spin 1.5s linear infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse-dot {
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes highlight {
+            0% { background-color: rgba(99, 102, 241, 0.1); }
+            100% { background-color: transparent; }
+        }
+        .highlight-flash {
+            animation: highlight 1s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- SSE连接状态全局提示栏 -->
+    <div id="connectionStatus" class="fixed top-0 left-0 right-0 z-50 shadow-md transition-all duration-300">
+        <!-- 连接中状态 -->
+        <div id="statusConnecting" class="hidden bg-blue-50 border-b border-blue-200 px-6 py-3">
+            <div class="max-w-7xl mx-auto flex items-center">
+                <i class="fas fa-spinner animate-spin-slow text-blue-500 mr-3"></i>
+                <span class="text-blue-700 font-medium">连接中...</span>
+            </div>
+        </div>
+
+        <!-- 已连接状态 -->
+        <div id="statusConnected" class="hidden bg-green-50 border-b border-green-200 px-6 py-3">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center">
+                    <span class="w-2 h-2 bg-green-500 rounded-full mr-3 pulse-dot"></span>
+                    <span class="text-green-700 font-medium">实时同步中</span>
+                </div>
+                <button onclick="toggleStatusBar()" class="text-green-600 hover:text-green-700">
+                    <i class="fas fa-chevron-up text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 重连中状态 -->
+        <div id="statusReconnecting" class="hidden bg-yellow-50 border-b border-yellow-200 px-6 py-3">
+            <div class="max-w-7xl mx-auto flex items-center">
+                <i class="fas fa-exclamation-triangle text-yellow-500 mr-3"></i>
+                <span class="text-yellow-700 font-medium">连接断开，正在重连（第 <span id="retryCount">1</span>/10 次）...</span>
+            </div>
+        </div>
+
+        <!-- 已断开状态 -->
+        <div id="statusDisconnected" class="hidden bg-red-50 border-b border-red-200 px-6 py-3">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-times-circle text-red-500 mr-3"></i>
+                    <span class="text-red-700 font-medium">连接断开，请刷新页面</span>
+                </div>
+                <button onclick="location.reload()" class="bg-red-500 text-white px-4 py-1.5 rounded-lg hover:bg-red-600 transition-colors text-sm">
+                    <i class="fas fa-sync-alt mr-2"></i>刷新页面
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 顶部导航 -->
+    <header class="bg-white border-b border-gray-200 shadow-sm mt-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                        <i class="fas fa-bolt text-white"></i>
+                    </div>
+                    <span class="text-lg font-bold text-gray-900">实时状态推送</span>
+                </div>
+                <div class="flex items-center gap-6">
+                    <nav class="flex gap-5 text-sm text-gray-600">
+                        <a href="边缘网关管理.html" class="hover:text-primary transition-colors">采集网关</a>
+                        <a href="注册码管理.html" class="hover:text-primary transition-colors">注册码</a>
+                        <a href="设备模型管理.html" class="hover:text-primary transition-colors">设备模型</a>
+                        <a href="设备实例管理.html" class="hover:text-primary transition-colors">设备实例</a>
+                        <a href="配置下发与同步.html" class="hover:text-primary transition-colors">配置记录</a>
+                        <a href="断网数据缓存.html" class="hover:text-primary transition-colors">系统配置</a>
+                    </nav>
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-gray-600">Admin</span>
+                        <div class="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-gray-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="pb-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <!-- 页面标题 -->
+            <div class="mb-8 mt-6">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">实时状态推送</h1>
+                <p class="text-gray-600">基于 SSE（Server-Sent Events）技术实现的实时状态推送机制演示</p>
+            </div>
+
+            <!-- SSE事件类型说明卡片 -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-broadcast-tower text-primary text-xl mr-3"></i>
+                    <h2 class="text-xl font-bold text-gray-900">SSE 事件类型说明</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-gray-200">
+                                <th class="text-left py-3 px-4 text-gray-700 font-semibold">事件类型</th>
+                                <th class="text-left py-3 px-4 text-gray-700 font-semibold">事件标识</th>
+                                <th class="text-left py-3 px-4 text-gray-700 font-semibold">推送触发</th>
+                                <th class="text-left py-3 px-4 text-gray-700 font-semibold">推送频率</th>
+                                <th class="text-left py-3 px-4 text-gray-700 font-semibold">说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                <td class="py-3 px-4"><span class="font-medium text-gray-900">网关状态事件</span></td>
+                                <td class="py-3 px-4"><code class="bg-gray-100 px-2 py-1 rounded text-sm text-primary">gateway_status</code></td>
+                                <td class="py-3 px-4 text-gray-600">网关心跳上报时</td>
+                                <td class="py-3 px-4 text-gray-600">约30秒/次</td>
+                                <td class="py-3 px-4 text-gray-600 text-sm">推送网关在线/离线状态变化</td>
+                            </tr>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                <td class="py-3 px-4"><span class="font-medium text-gray-900">网关性能事件</span></td>
+                                <td class="py-3 px-4"><code class="bg-gray-100 px-2 py-1 rounded text-sm text-primary">gateway_performance</code></td>
+                                <td class="py-3 px-4 text-gray-600">网关心跳上报（含性能数据）时</td>
+                                <td class="py-3 px-4 text-gray-600">约30秒/次</td>
+                                <td class="py-3 px-4 text-gray-600 text-sm">推送CPU、内存、磁盘使用率</td>
+                            </tr>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                <td class="py-3 px-4"><span class="font-medium text-gray-900">采集值事件</span></td>
+                                <td class="py-3 px-4"><code class="bg-gray-100 px-2 py-1 rounded text-sm text-primary">device_point_values</code></td>
+                                <td class="py-3 px-4 text-gray-600">采集数据写入时序库后聚合</td>
+                                <td class="py-3 px-4 text-gray-600">1秒/次（批量聚合）</td>
+                                <td class="py-3 px-4 text-gray-600 text-sm">批量推送点位最新采集值</td>
+                            </tr>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                <td class="py-3 px-4"><span class="font-medium text-gray-900">下发状态事件</span></td>
+                                <td class="py-3 px-4"><code class="bg-gray-100 px-2 py-1 rounded text-sm text-primary">deploy_status</code></td>
+                                <td class="py-3 px-4 text-gray-600">配置下发执行完成时</td>
+                                <td class="py-3 px-4 text-gray-600">立即推送（不延迟）</td>
+                                <td class="py-3 px-4 text-gray-600 text-sm">推送配置下发成功/失败状态</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="py-3 px-4"><span class="font-medium text-gray-900">缓存状态事件</span></td>
+                                <td class="py-3 px-4"><code class="bg-gray-100 px-2 py-1 rounded text-sm text-primary">cache_status</code></td>
+                                <td class="py-3 px-4 text-gray-600">缓存状态变化时</td>
+                                <td class="py-3 px-4 text-gray-600">立即推送（不延迟）</td>
+                                <td class="py-3 px-4 text-gray-600 text-sm">推送缓存条数、存储占用、补发进度</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 重连机制演示卡片 -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-redo-alt text-primary text-xl mr-3"></i>
+                        <h2 class="text-xl font-bold text-gray-900">重连机制演示</h2>
+                    </div>
+                    <button onclick="simulateReconnection()" id="reconnectBtn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors">
+                        <i class="fas fa-plug mr-2"></i>模拟重连
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- 指数退避策略说明 -->
+                    <div class="bg-gray-50 rounded-xl p-5">
+                        <h3 class="font-semibold text-gray-900 mb-3 flex items-center">
+                            <i class="fas fa-chart-line text-primary mr-2"></i>指数退避策略
+                        </h3>
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-600">第 1 次重试</span>
+                                <span class="font-mono text-primary">1 秒后</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-600">第 2 次重试</span>
+                                <span class="font-mono text-primary">2 秒后</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-600">第 3 次重试</span>
+                                <span class="font-mono text-primary">4 秒后</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-600">第 4 次重试</span>
+                                <span class="font-mono text-primary">8 秒后</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-600">第 5 次重试</span>
+                                <span class="font-mono text-primary">16 秒后</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-600">第 6-10 次重试</span>
+                                <span class="font-mono text-primary">30 秒后</span>
+                            </div>
+                        </div>
+                        <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                            <p class="text-sm text-blue-700">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                最大间隔 30 秒，最多重试 10 次
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 重连流程 -->
+                    <div class="bg-gray-50 rounded-xl p-5">
+                        <h3 class="font-semibold text-gray-900 mb-3 flex items-center">
+                            <i class="fas fa-project-diagram text-primary mr-2"></i>重连流程
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex items-start">
+                                <div class="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</div>
+                                <div>
+                                    <p class="font-medium text-gray-900">SSE 连接断开</p>
+                                    <p class="text-sm text-gray-500">网络异常或服务重启</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start">
+                                <div class="w-6 h-6 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</div>
+                                <div>
+                                    <p class="font-medium text-gray-900">进入重连中状态</p>
+                                    <p class="text-sm text-gray-500">显示重试次数提示</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start">
+                                <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</div>
+                                <div>
+                                    <p class="font-medium text-gray-900">按指数退避策略重试</p>
+                                    <p class="text-sm text-gray-500">1s → 2s → 4s → 8s → 16s → 30s</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start">
+                                <div class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">4</div>
+                                <div>
+                                    <p class="font-medium text-gray-900">重连成功或失败</p>
+                                    <p class="text-sm text-gray-500">恢复连接 或 10次后停止</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 实时数据演示区 -->
+            <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+                <i class="fas fa-desktop text-primary mr-3"></i>实时数据演示区
+            </h2>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- 网关状态实时更新演示 -->
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-900">
+                            <i class="fas fa-server text-primary mr-2"></i>网关状态实时更新
+                        </h3>
+                        <span class="text-xs text-gray-400">模拟 gateway_status 事件</span>
+                    </div>
+                    <div class="space-y-3" id="gatewayList">
+                        <!-- 网关项会通过 JS 动态渲染 -->
+                    </div>
+                </div>
+
+                <!-- 网关性能实时更新演示 -->
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-900">
+                            <i class="fas fa-tachometer-alt text-primary mr-2"></i>网关性能实时更新
+                        </h3>
+                        <span class="text-xs text-gray-400">模拟 gateway_performance 事件</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium text-gray-700">CPU 使用率</span>
+                                <span class="text-sm font-bold text-primary" id="cpuValue">45%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div id="cpuBar" class="bg-primary h-3 rounded-full transition-all duration-500" style="width: 45%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium text-gray-700">内存使用率</span>
+                                <span class="text-sm font-bold text-green-600" id="memoryValue">62%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div id="memoryBar" class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: 62%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium text-gray-700">磁盘使用率</span>
+                                <span class="text-sm font-bold text-orange-600" id="diskValue">38%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div id="diskBar" class="bg-orange-500 h-3 rounded-full transition-all duration-500" style="width: 38%"></div>
+                            </div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-100">
+                            <p class="text-xs text-gray-500">
+                                <i class="fas fa-clock mr-1"></i>最后更新：<span id="performanceTime">--</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 设备点位实时值演示 -->
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-900">
+                            <i class="fas fa-microchip text-primary mr-2"></i>设备点位实时值
+                        </h3>
+                        <span class="text-xs text-gray-400">模拟 device_point_values 事件</span>
+                    </div>
+                    <div class="space-y-3" id="pointList">
+                        <!-- 点位项会通过 JS 动态渲染 -->
+                    </div>
+                </div>
+
+                <!-- 配置下发状态演示 -->
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-900">
+                            <i class="fas fa-cloud-upload-alt text-primary mr-2"></i>配置下发状态
+                        </h3>
+                        <span class="text-xs text-gray-400">模拟 deploy_status 事件</span>
+                    </div>
+                    <div class="space-y-3" id="deployList">
+                        <!-- 下发项会通过 JS 动态渲染 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 缓存状态演示（全宽） -->
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-gray-900">
+                        <i class="fas fa-database text-primary mr-2"></i>缓存状态实时更新
+                    </h3>
+                    <span class="text-xs text-gray-400">模拟 cache_status 事件</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gray-50 rounded-xl p-5 text-center">
+                        <div class="text-3xl font-bold text-primary mb-2" id="cacheCount">1,234</div>
+                        <div class="text-sm text-gray-600">缓存条数</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-5">
+                        <div class="flex justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-700">存储占用</span>
+                            <span class="text-sm font-bold text-primary" id="storageValue">45%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 mb-2">
+                            <div id="storageBar" class="bg-primary h-3 rounded-full transition-all duration-500" style="width: 45%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500">已使用 450MB / 1GB</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-5">
+                        <div class="flex justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-700">补发进度</span>
+                            <span class="text-sm font-bold text-green-600" id="reprocessValue">78%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 mb-2">
+                            <div id="reprocessBar" class="bg-green-500 h-3 rounded-full transition-all duration-500" style="width: 78%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500">已补发 780 / 1000 条</div>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
+                    <i class="fas fa-clock mr-1"></i>最后更新：<span id="cacheTime">--</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock 数据
+        const gateways = [
+            { id: 1, name: '边缘网关-生产车间-A', status: 'online', lastHeartbeat: new Date() },
+            { id: 2, name: '边缘网关-仓库区-B', status: 'offline', lastHeartbeat: new Date(Date.now() - 180000) },
+            { id: 3, name: '边缘网关-质检中心-C', status: 'online', lastHeartbeat: new Date() }
+        ];
+
+        const points = [
+            { id: 1, name: '温度传感器-车间A-T01', value: '25.6', unit: '°C', updateTime: new Date() },
+            { id: 2, name: '压力传感器-管道P-102', value: '1.25', unit: 'MPa', updateTime: new Date() },
+            { id: 3, name: '流量计-进水口-F01', value: '156.8', unit: 'L/min', updateTime: new Date() },
+            { id: 4, name: '湿度传感器-仓库H-01', value: '68', unit: '%RH', updateTime: new Date() }
+        ];
+
+        const deploys = [
+            { id: 1, type: '配置下发', target: '边缘网关-生产车间-A', status: 'pending', time: new Date() },
+            { id: 2, type: '固件升级', target: '边缘网关-仓库区-B', status: 'pending', time: new Date() },
+            { id: 3, type: '采集配置', target: '边缘网关-质检中心-C', status: 'success', time: new Date(Date.now() - 60000) }
+        ];
+
+        let connectionState = 'connected'; // connecting, connected, reconnecting, disconnected
+        let retryAttempt = 0;
+        let reconnectSimulationInterval = null;
+
+        // 格式化时间
+        function formatTime(date) {
+            const h = String(date.getHours()).padStart(2, '0');
+            const m = String(date.getMinutes()).padStart(2, '0');
+            const s = String(date.getSeconds()).padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        // 更新连接状态显示
+        function updateConnectionStatus(state, retryNum = 0) {
+            const statusConnecting = document.getElementById('statusConnecting');
+            const statusConnected = document.getElementById('statusConnected');
+            const statusReconnecting = document.getElementById('statusReconnecting');
+            const statusDisconnected = document.getElementById('statusDisconnected');
+            const retryCount = document.getElementById('retryCount');
+
+            statusConnecting.classList.add('hidden');
+            statusConnected.classList.add('hidden');
+            statusReconnecting.classList.add('hidden');
+            statusDisconnected.classList.add('hidden');
+
+            switch(state) {
+                case 'connecting':
+                    statusConnecting.classList.remove('hidden');
+                    break;
+                case 'connected':
+                    statusConnected.classList.remove('hidden');
+                    break;
+                case 'reconnecting':
+                    retryCount.textContent = retryNum;
+                    statusReconnecting.classList.remove('hidden');
+                    break;
+                case 'disconnected':
+                    statusDisconnected.classList.remove('hidden');
+                    break;
+            }
+            connectionState = state;
+        }
+
+        // 渲染网关列表
+        function renderGateways() {
+            const container = document.getElementById('gatewayList');
+            container.innerHTML = gateways.map(gw => `
+                <div class="bg-gray-50 rounded-lg p-4 flex items-center justify-between" id="gateway-${gw.id}">
+                    <div class="flex items-center">
+                        <i class="fas fa-server text-gray-400 mr-3"></i>
+                        <div>
+                            <div class="font-medium text-gray-900">${gw.name}</div>
+                            <div class="text-xs text-gray-500">
+                                <i class="fas fa-clock mr-1"></i>${formatTime(gw.lastHeartbeat)}
+                            </div>
+                        </div>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-xs font-medium ${gw.status === 'online' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}">
+                        <i class="fas fa-circle text-xs mr-1" style="font-size: 6px;"></i>
+                        ${gw.status === 'online' ? '在线' : '离线'}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        // 渲染点位列表
+        function renderPoints() {
+            const container = document.getElementById('pointList');
+            container.innerHTML = points.map(pt => `
+                <div class="bg-gray-50 rounded-lg p-4" id="point-${pt.id}">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-sm font-medium text-gray-900">${pt.name}</span>
+                        <span class="text-lg font-bold text-primary" id="point-value-${pt.id}">${pt.value} ${pt.unit}</span>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        <i class="fas fa-clock mr-1"></i>更新于 ${formatTime(pt.updateTime)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 渲染下发列表
+        function renderDeploys() {
+            const container = document.getElementById('deployList');
+            container.innerHTML = deploys.map(dp => `
+                <div class="bg-gray-50 rounded-lg p-4" id="deploy-${dp.id}">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-medium text-gray-900">${dp.type}</div>
+                            <div class="text-xs text-gray-500">${dp.target}</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium ${getDeployStatusClass(dp.status)}">
+                                ${getDeployStatusText(dp.status)}
+                            </span>
+                            <div class="text-xs text-gray-500 mt-1">${formatTime(dp.time)}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getDeployStatusClass(status) {
+            switch(status) {
+                case 'pending': return 'bg-yellow-100 text-yellow-700';
+                case 'success': return 'bg-green-100 text-green-700';
+                case 'failed': return 'bg-red-100 text-red-700';
+                default: return 'bg-gray-100 text-gray-700';
+            }
+        }
+
+        function getDeployStatusText(status) {
+            switch(status) {
+                case 'pending': return '下发中';
+                case 'success': return '成功';
+                case 'failed': return '失败';
+                default: return status;
+            }
+        }
+
+        // 模拟网关状态变化
+        function simulateGatewayStatus() {
+            const randomGw = gateways[Math.floor(Math.random() * gateways.length)];
+            randomGw.status = randomGw.status === 'online' ? 'offline' : 'online';
+            randomGw.lastHeartbeat = new Date();
+            renderGateways();
+
+            // 高亮闪烁
+            const element = document.getElementById(`gateway-${randomGw.id}`);
+            element.classList.add('highlight-flash');
+            setTimeout(() => element.classList.remove('highlight-flash'), 1000);
+        }
+
+        // 模拟性能数据变化
+        function simulatePerformance() {
+            const cpu = Math.floor(Math.random() * 60 + 20);
+            const memory = Math.floor(Math.random() * 50 + 40);
+            const disk = Math.floor(Math.random() * 40 + 20);
+
+            document.getElementById('cpuValue').textContent = cpu + '%';
+            document.getElementById('cpuBar').style.width = cpu + '%';
+
+            document.getElementById('memoryValue').textContent = memory + '%';
+            document.getElementById('memoryBar').style.width = memory + '%';
+
+            document.getElementById('diskValue').textContent = disk + '%';
+            document.getElementById('diskBar').style.width = disk + '%';
+
+            document.getElementById('performanceTime').textContent = formatTime(new Date());
+        }
+
+        // 模拟点位值变化
+        function simulatePointValues() {
+            const randomPt = points[Math.floor(Math.random() * points.length)];
+            const newValue = (parseFloat(randomPt.value) + (Math.random() - 0.5) * 2).toFixed(1);
+            randomPt.value = newValue;
+            randomPt.updateTime = new Date();
+
+            // 只更新该点位的值
+            document.getElementById(`point-value-${randomPt.id}`).textContent = `${newValue} ${randomPt.unit}`;
+            const element = document.getElementById(`point-${randomPt.id}`);
+            element.querySelector('.text-xs').innerHTML = `<i class="fas fa-clock mr-1"></i>更新于 ${formatTime(randomPt.updateTime)}`;
+            element.classList.add('highlight-flash');
+            setTimeout(() => element.classList.remove('highlight-flash'), 1000);
+        }
+
+        // 模拟下发状态变化
+        function simulateDeployStatus() {
+            const pending = deploys.find(d => d.status === 'pending');
+            if (pending) {
+                pending.status = Math.random() > 0.3 ? 'success' : 'failed';
+                pending.time = new Date();
+                renderDeploys();
+            } else {
+                // 重置一个为 pending
+                const randomDeploy = deploys[Math.floor(Math.random() * deploys.length)];
+                randomDeploy.status = 'pending';
+                randomDeploy.time = new Date();
+                renderDeploys();
+            }
+        }
+
+        // 模拟缓存状态变化
+        function simulateCacheStatus() {
+            const cacheCount = Math.floor(Math.random() * 500 + 1000);
+            const storage = Math.floor(Math.random() * 40 + 30);
+            const reprocess = Math.floor(Math.random() * 50 + 50);
+
+            document.getElementById('cacheCount').textContent = cacheCount.toLocaleString();
+            document.getElementById('storageValue').textContent = storage + '%';
+            document.getElementById('storageBar').style.width = storage + '%';
+            document.getElementById('reprocessValue').textContent = reprocess + '%';
+            document.getElementById('reprocessBar').style.width = reprocess + '%';
+            document.getElementById('cacheTime').textContent = formatTime(new Date());
+        }
+
+        // 模拟重连过程
+        function simulateReconnection() {
+            const btn = document.getElementById('reconnectBtn');
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            updateConnectionStatus('disconnected');
+
+            let attempt = 0;
+            const maxAttempts = 10;
+            const intervals = [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000, 30000, 30000];
+
+            function attemptReconnect() {
+                if (attempt >= maxAttempts) {
+                    updateConnectionStatus('disconnected');
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    return;
+                }
+
+                attempt++;
+                updateConnectionStatus('reconnecting', attempt);
+
+                // 模拟第 5 次重连成功
+                if (attempt === 5) {
+                    setTimeout(() => {
+                        updateConnectionStatus('connected');
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }, intervals[attempt - 1]);
+                    return;
+                }
+
+                setTimeout(attemptReconnect, intervals[attempt - 1]);
+            }
+
+            setTimeout(attemptReconnect, 500);
+        }
+
+        // 收起/展开状态栏
+        function toggleStatusBar() {
+            const statusBar = document.getElementById('connectionStatus');
+            statusBar.classList.toggle('hidden');
+        }
+
+        // 初始化
+        function init() {
+            // 初始显示连接中
+            updateConnectionStatus('connecting');
+
+            // 2秒后连接成功
+            setTimeout(() => {
+                updateConnectionStatus('connected');
+            }, 2000);
+
+            // 渲染初始数据
+            renderGateways();
+            renderPoints();
+            renderDeploys();
+
+            // 定时模拟数据变化
+            setInterval(simulateGatewayStatus, 5000);
+            setInterval(simulatePerformance, 3000);
+            setInterval(simulatePointValues, 2000);
+            setInterval(simulateDeployStatus, 7000);
+            setInterval(simulateCacheStatus, 4000);
+
+            // 初始化时间显示
+            document.getElementById('performanceTime').textContent = formatTime(new Date());
+            document.getElementById('cacheTime').textContent = formatTime(new Date());
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

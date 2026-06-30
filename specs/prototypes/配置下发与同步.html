@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置下发与同步</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366F1',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .modal-backdrop { background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); }
+        .drawer-backdrop { background: rgba(0,0,0,0.3); backdrop-filter: blur(1px); }
+        .popover { position: absolute; z-index: 50; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white border-b border-gray-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                        <i class="fas fa-sync-alt text-white"></i>
+                    </div>
+                    <span class="text-lg font-bold text-gray-900">配置下发与同步</span>
+                </div>
+                <div class="flex items-center gap-6">
+                    <nav class="flex gap-5 text-sm text-gray-600">
+                        <a href="边缘网关管理.html" class="hover:text-primary transition-colors">采集网关</a>
+                        <a href="注册码管理.html" class="hover:text-primary transition-colors">注册码</a>
+                        <a href="设备模型管理.html" class="hover:text-primary transition-colors">设备模型</a>
+                        <a href="设备实例管理.html" class="hover:text-primary transition-colors">设备实例</a>
+                        <a href="配置下发与同步.html" class="text-primary font-medium border-b-2 border-primary pb-1">配置记录</a>
+                        <a href="断网数据缓存.html" class="hover:text-primary transition-colors">系统配置</a>
+                    </nav>
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-gray-600">Admin</span>
+                        <div class="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-gray-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主页面：配置记录列表页 -->
+    <div id="listPage">
+        <main class="max-w-7xl mx-auto px-6 py-8">
+            <!-- 页面标题 -->
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">配置记录</h1>
+                    <p class="text-gray-500 mt-1">查看所有配置下发历史和状态</p>
+                </div>
+            </div>
+
+            <!-- 筛选卡片 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
+                <div class="grid grid-cols-6 gap-4 items-end">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">设备名称</label>
+                        <input type="text" id="searchInstanceName" placeholder="搜索设备名称..."
+                               class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">设备ID</label>
+                        <input type="text" id="searchDeviceId" placeholder="搜索设备ID..."
+                               class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">网关名称</label>
+                        <select id="filterGateway" class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">全部网关</option>
+                            <option value="gateway1">工厂A-网关01</option>
+                            <option value="gateway2">工厂B-网关02</option>
+                            <option value="gateway3">仓库C-网关03</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">下发类型</label>
+                        <select id="filterType" class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">全部类型</option>
+                            <option value="heartbeat">系统初始化</option>
+                            <option value="collect">采集流</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">状态</label>
+                        <select id="filterStatus" class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">全部状态</option>
+                            <option value="success">成功</option>
+                            <option value="failed">失败</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">下发时间</label>
+                        <input type="date" id="filterDateStart"
+                               class="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mt-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-400">至</span>
+                        <input type="date" id="filterDateEnd"
+                               class="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium" onclick="handleQuery()">
+                            <i class="fas fa-search mr-1"></i>查询
+                        </button>
+                        <button class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm" onclick="handleReset()">
+                            <i class="fas fa-redo mr-1"></i>重置
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作按钮区 -->
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-2 text-sm text-gray-500">
+                    <span>共</span>
+                    <span class="font-medium text-gray-900" id="totalCount">12</span>
+                    <span>条记录</span>
+                </div>
+                <button class="px-4 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-2" onclick="handleRefresh()">
+                    <i class="fas fa-sync-alt"></i>刷新
+                </button>
+            </div>
+
+            <!-- 数据表格 -->
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200">
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">设备名称</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">设备ID</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">网关名称</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">下发类型</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">状态</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">失败原因</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">下发时间</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">操作人</th>
+                            <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100" id="recordsTableBody">
+                        <!-- 采集流 - 成功 -->
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4 text-primary font-semibold text-sm cursor-pointer hover:underline" onclick="showDetailPage()">温度传感器-01</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">DEV-TEMP-001</td>
+                            <td class="px-4 py-4 text-primary text-sm cursor-pointer hover:underline">工厂A-网关01</td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">采集流</span></td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">成功</span></td>
+                            <td class="px-4 py-4 text-gray-400 text-sm">-</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">2026-06-30 14:32:15</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">Admin</td>
+                            <td class="px-4 py-4">
+                                <button class="text-primary hover:text-indigo-700 text-sm font-medium" onclick="showDetailPage()">详情</button>
+                            </td>
+                        </tr>
+                        <!-- 采集流 - 失败 -->
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4 text-primary font-semibold text-sm cursor-pointer hover:underline" onclick="showDetailPage()">压力传感器-02</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">DEV-PRESS-002</td>
+                            <td class="px-4 py-4 text-primary text-sm cursor-pointer hover:underline">工厂A-网关01</td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">采集流</span></td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs font-medium">失败</span></td>
+                            <td class="px-4 py-4 text-red-500 text-sm truncate max-w-[150px]" title="网关连接超时，请检查网络状态">网关连接超时，请检查网...</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">2026-06-30 13:28:42</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">Admin</td>
+                            <td class="px-4 py-4">
+                                <button class="text-primary hover:text-indigo-700 text-sm font-medium" onclick="showDetailPage()">详情</button>
+                            </td>
+                        </tr>
+                        <!-- 系统初始化 - 成功 -->
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4 text-gray-400 text-sm">-</td>
+                            <td class="px-4 py-4 text-gray-400 text-sm">-</td>
+                            <td class="px-4 py-4 text-primary text-sm cursor-pointer hover:underline">工厂B-网关02</td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium">系统初始化</span></td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">成功</span></td>
+                            <td class="px-4 py-4 text-gray-400 text-sm">-</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">2026-06-30 10:15:33</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">系统</td>
+                            <td class="px-4 py-4">
+                                <button class="text-primary hover:text-indigo-700 text-sm font-medium" onclick="showDetailPage()">详情</button>
+                            </td>
+                        </tr>
+                        <!-- 系统初始化 - 失败 -->
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4 text-gray-400 text-sm">-</td>
+                            <td class="px-4 py-4 text-gray-400 text-sm">-</td>
+                            <td class="px-4 py-4 text-primary text-sm cursor-pointer hover:underline">仓库C-网关03</td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium">系统初始化</span></td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs font-medium">失败</span></td>
+                            <td class="px-4 py-4 text-red-500 text-sm truncate max-w-[150px]" title="Node-RED API 认证失败，请检查访问令牌配置">Node-RED API 认证失败，请检...</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">2026-06-29 16:42:18</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">系统</td>
+                            <td class="px-4 py-4">
+                                <button class="text-primary hover:text-indigo-700 text-sm font-medium" onclick="showDetailPage()">详情</button>
+                            </td>
+                        </tr>
+                        <!-- 采集流 - 成功 2 -->
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4 text-primary font-semibold text-sm cursor-pointer hover:underline" onclick="showDetailPage()">流量计-03</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">DEV-FLOW-003</td>
+                            <td class="px-4 py-4 text-primary text-sm cursor-pointer hover:underline">工厂B-网关02</td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">采集流</span></td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">成功</span></td>
+                            <td class="px-4 py-4 text-gray-400 text-sm">-</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">2026-06-29 11:05:27</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">Admin</td>
+                            <td class="px-4 py-4">
+                                <button class="text-primary hover:text-indigo-700 text-sm font-medium" onclick="showDetailPage()">详情</button>
+                            </td>
+                        </tr>
+                        <!-- 采集流 - 失败 2 -->
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-4 py-4 text-primary font-semibold text-sm cursor-pointer hover:underline" onclick="showDetailPage()">湿度传感器-04</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">DEV-HUMID-004</td>
+                            <td class="px-4 py-4 text-primary text-sm cursor-pointer hover:underline">工厂B-网关02</td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">采集流</span></td>
+                            <td class="px-4 py-4"><span class="px-2.5 py-1 bg-red-50 text-red-600 rounded-full text-xs font-medium">失败</span></td>
+                            <td class="px-4 py-4 text-red-500 text-sm truncate max-w-[150px]" title="配置文件格式错误，JSON 解析失败">配置文件格式错误，JSON 解...</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">2026-06-28 09:33:51</td>
+                            <td class="px-4 py-4 text-gray-600 text-sm">Admin</td>
+                            <td class="px-4 py-4">
+                                <button class="text-primary hover:text-indigo-700 text-sm font-medium" onclick="showDetailPage()">详情</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            <div class="flex justify-between items-center mt-5">
+                <div class="flex items-center gap-2 text-sm text-gray-500">
+                    <span>每页</span>
+                    <select class="px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm">
+                        <option>10</option>
+                        <option selected>20</option>
+                        <option>50</option>
+                        <option>100</option>
+                    </select>
+                    <span>条</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button class="px-3 py-1.5 bg-white border border-gray-200 text-gray-400 rounded-lg cursor-not-allowed" disabled><i class="fas fa-chevron-left text-xs"></i></button>
+                    <button class="px-3 py-1.5 bg-primary text-white rounded-lg">1</button>
+                    <button class="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">2</button>
+                    <button class="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50">3</button>
+                    <button class="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50"><i class="fas fa-chevron-right text-xs"></i></button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 详情页：配置记录详情页 -->
+    <div id="detailPage" class="hidden">
+        <main class="max-w-5xl mx-auto px-6 py-8">
+            <!-- 返回按钮 -->
+            <button class="flex items-center gap-2 text-gray-600 hover:text-primary mb-6 transition-colors" onclick="showListPage()">
+                <i class="fas fa-arrow-left"></i>
+                <span class="text-sm">返回列表</span>
+            </button>
+
+            <!-- 页头区 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <h1 class="text-2xl font-bold text-gray-900">配置下发详情</h1>
+                            <span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">成功</span>
+                        </div>
+                        <div class="flex items-center gap-4 text-sm text-gray-500">
+                            <span><i class="fas fa-cube mr-1.5"></i>温度传感器-01</span>
+                            <span><i class="fas fa-server mr-1.5"></i>工厂A-网关01</span>
+                            <span><i class="fas fa-clock mr-1.5"></i>2026-06-30 14:32:15</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">
+                            <i class="fas fa-redo mr-1.5"></i>重新下发
+                        </button>
+                        <div class="relative">
+                            <button class="px-4 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm" onclick="toggleDeletePopover()">
+                                <i class="fas fa-trash-alt mr-1.5"></i>删除
+                            </button>
+                            <!-- 删除确认气泡 -->
+                            <div id="deletePopover" class="popover hidden right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 p-4">
+                                <p class="text-gray-900 font-semibold mb-1">确定删除此条记录吗？</p>
+                                <p class="text-gray-500 text-sm mb-4">仅删除平台记录，不影响网关已下发的配置</p>
+                                <div class="flex justify-end gap-2">
+                                    <button class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 text-sm" onclick="toggleDeletePopover()">取消</button>
+                                    <button class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">确定</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 基本信息卡片 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
+                <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <i class="fas fa-info-circle text-primary"></i>基本信息
+                </h2>
+                <div class="grid grid-cols-2 gap-x-8 gap-y-4">
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">设备名称</p>
+                        <p class="text-gray-900 font-medium">温度传感器-01</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">设备ID</p>
+                        <p class="text-gray-900 font-mono">DEV-TEMP-001</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">网关名称</p>
+                        <p class="text-primary font-medium cursor-pointer hover:underline">工厂A-网关01</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">下发类型</p>
+                        <span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">采集流</span>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">已下发版本号</p>
+                        <p class="text-gray-900 font-mono">v1.2.3</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">状态</p>
+                        <span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">成功</span>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">下发时间</p>
+                        <p class="text-gray-900">2026-06-30 14:32:15</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">操作人</p>
+                        <p class="text-gray-900">Admin</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">耗时</p>
+                        <p class="text-gray-900">1.25 秒</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flow信息卡片（仅采集流时显示） -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
+                <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <i class="fas fa-project-diagram text-primary"></i>Flow 信息
+                </h2>
+                <div class="grid grid-cols-2 gap-x-8 gap-y-4 mb-6">
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Flow 名称</p>
+                        <p class="text-gray-900 font-medium">温度传感器-01-DEV-TEMP-001</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">Flow ID</p>
+                        <p class="text-gray-900 font-mono">a1b2c3d4e5f6g7h8</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">节点数量</p>
+                        <p class="text-gray-900">12 个</p>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-900 mb-3">节点列表</h3>
+                    <div class="border border-gray-200 rounded-lg overflow-hidden">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-50 border-b border-gray-200">
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">节点名称</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">节点类型</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">状态</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-sm text-gray-900">MQTT 输入</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">mqtt in</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded-full text-xs font-medium">运行中</span></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-sm text-gray-900">数据解析</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">function</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded-full text-xs font-medium">运行中</span></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-sm text-gray-900">数据转换</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">function</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded-full text-xs font-medium">运行中</span></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-sm text-gray-900">MQTT 输出</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">mqtt out</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded-full text-xs font-medium">运行中</span></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-sm text-gray-900">调试输出</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">debug</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">已停止</span></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-sm text-gray-900">异常捕获</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">catch</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded-full text-xs font-medium">运行中</span></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-sm text-gray-900">数据过滤</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">function</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded-full text-xs font-medium">运行中</span></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-sm text-gray-900">延迟节点</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">delay</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-green-50 text-green-600 rounded-full text-xs font-medium">运行中</span></td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-4 py-3 text-sm text-gray-900">数据存储</td>
+                                    <td class="px-4 py-3 text-sm text-gray-600 font-mono">influxdb out</td>
+                                    <td class="px-4 py-3"><span class="px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">已停止</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 失败详情卡片（仅失败时显示 - 默认隐藏） -->
+            <div id="failureDetailCard" class="bg-white rounded-xl border border-red-200 p-6 mb-6 shadow-sm hidden">
+                <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <i class="fas fa-exclamation-triangle text-red-500"></i>失败详情
+                </h2>
+                <div class="grid grid-cols-2 gap-x-8 gap-y-4">
+                    <div class="col-span-2">
+                        <p class="text-xs text-gray-500 mb-1">失败原因</p>
+                        <p class="text-red-600">网关连接超时，请检查网络状态</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">错误码</p>
+                        <p class="text-gray-900 font-mono">TIMEOUT_ERR</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 mb-1">建议操作</p>
+                        <p class="text-gray-900">检查网关网络连接状态，确保网关在线后重试下发</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 下发失败详情弹窗 -->
+    <div id="failureModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[480px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">下发失败</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('failureModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="bg-red-50 rounded-xl p-4 mb-5">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-exclamation-circle text-red-500 text-lg mt-0.5"></i>
+                        <div>
+                            <p class="text-red-600 font-medium">网关连接超时，请检查网络状态</p>
+                            <p class="text-red-500 text-sm mt-1">错误码：TIMEOUT_ERR</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span class="text-sm text-gray-500">设备名称</span>
+                        <span class="text-gray-900 font-medium">压力传感器-02</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span class="text-sm text-gray-500">网关名称</span>
+                        <span class="text-primary font-medium cursor-pointer hover:underline">工厂A-网关01</span>
+                    </div>
+                    <div class="flex justify-between items-start py-2 border-b border-gray-100">
+                        <span class="text-sm text-gray-500">失败原因</span>
+                        <span class="text-red-600 text-right max-w-[280px]">网关连接超时，请检查网络状态</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span class="text-sm text-gray-500">错误码</span>
+                        <span class="text-gray-900 font-mono">TIMEOUT_ERR</span>
+                    </div>
+                    <div class="flex justify-between items-start py-2">
+                        <span class="text-sm text-gray-500">建议操作</span>
+                        <span class="text-gray-900 text-right max-w-[280px]">检查网关网络连接状态，确保网关在线后重试下发</span>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium" onclick="closeModal('failureModal')">关闭</button>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-xl hover:bg-indigo-600 font-medium" onclick="closeModal('failureModal')">
+                    <i class="fas fa-redo mr-1.5"></i>重试
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量下发确认弹窗 -->
+    <div id="batchConfirmModal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[440px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">确认批量下发</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('batchConfirmModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="flex items-center gap-4 mb-5">
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-cloud-upload-alt text-primary text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-900 font-semibold">即将向 5 个实例下发配置</p>
+                        <p class="text-gray-500 text-sm mt-0.5">是否继续？</p>
+                    </div>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-500">选中实例数</span>
+                        <span class="text-gray-900 font-semibold">5</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-500">可下发实例数</span>
+                        <span class="text-green-600 font-semibold">4</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-500">涉及网关数</span>
+                        <span class="text-gray-900 font-semibold">2</span>
+                    </div>
+                    <div class="pt-2 border-t border-gray-200">
+                        <p class="text-xs text-orange-600"><i class="fas fa-exclamation-triangle mr-1"></i>已过滤 1 个未绑定网关的实例</p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium" onclick="closeModal('batchConfirmModal')">取消</button>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-xl hover:bg-indigo-600 font-medium" onclick="showBatchProgress()">
+                    <i class="fas fa-check mr-1.5"></i>确认下发
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量下发进度面板（抽屉） -->
+    <div id="batchProgressDrawer" class="fixed inset-0 drawer-backdrop hidden z-50">
+        <div class="absolute right-0 top-0 h-full w-[420px] bg-white shadow-2xl transform transition-transform duration-300">
+            <div class="flex flex-col h-full">
+                <!-- 抽屉头部 -->
+                <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-gray-900">批量下发进度</h3>
+                    <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeDrawer()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- 进度概览 -->
+                <div class="px-6 py-5 border-b border-gray-100">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm text-gray-500">总进度</span>
+                        <span class="text-sm font-semibold text-gray-900">4 / 5</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+                        <div class="bg-primary h-2.5 rounded-full" style="width: 80%"></div>
+                    </div>
+                    <div class="flex gap-6">
+                        <div class="flex items-center gap-2">
+                            <div class="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
+                            <span class="text-sm text-gray-500">成功</span>
+                            <span class="text-sm font-semibold text-green-600">3</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
+                            <span class="text-sm text-gray-500">失败</span>
+                            <span class="text-sm font-semibold text-red-600">1</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-2.5 h-2.5 bg-gray-300 rounded-full"></div>
+                            <span class="text-sm text-gray-500">待处理</span>
+                            <span class="text-sm font-semibold text-gray-600">1</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 分组详情 -->
+                <div class="flex-1 overflow-y-auto px-6 py-4">
+                    <!-- 网关分组1 -->
+                    <div class="mb-4">
+                        <div class="flex items-center gap-2 mb-3">
+                            <i class="fas fa-server text-primary text-sm"></i>
+                            <span class="font-medium text-gray-900">工厂A-网关01</span>
+                            <span class="text-xs text-gray-400">(3 个实例)</span>
+                        </div>
+                        <div class="space-y-2 pl-6">
+                            <div class="flex items-center justify-between py-2 px-3 bg-green-50 rounded-lg">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-check-circle text-green-500"></i>
+                                    <span class="text-sm text-gray-900">温度传感器-01</span>
+                                </div>
+                                <span class="text-xs text-green-600">下发成功</span>
+                            </div>
+                            <div class="flex items-center justify-between py-2 px-3 bg-red-50 rounded-lg">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-times-circle text-red-500"></i>
+                                    <span class="text-sm text-gray-900">压力传感器-02</span>
+                                </div>
+                                <button class="text-xs text-red-600 hover:underline">查看原因</button>
+                            </div>
+                            <div class="flex items-center justify-between py-2 px-3 bg-green-50 rounded-lg">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-check-circle text-green-500"></i>
+                                    <span class="text-sm text-gray-900">湿度传感器-03</span>
+                                </div>
+                                <span class="text-xs text-green-600">下发成功</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 网关分组2 -->
+                    <div class="mb-4">
+                        <div class="flex items-center gap-2 mb-3">
+                            <i class="fas fa-server text-primary text-sm"></i>
+                            <span class="font-medium text-gray-900">工厂B-网关02</span>
+                            <span class="text-xs text-gray-400">(2 个实例)</span>
+                        </div>
+                        <div class="space-y-2 pl-6">
+                            <div class="flex items-center justify-between py-2 px-3 bg-green-50 rounded-lg">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-check-circle text-green-500"></i>
+                                    <span class="text-sm text-gray-900">流量计-01</span>
+                                </div>
+                                <span class="text-xs text-green-600">下发成功</span>
+                            </div>
+                            <div class="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                                    <span class="text-sm text-gray-900">电表-02</span>
+                                </div>
+                                <span class="text-xs text-gray-500">下发中...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 底部操作 -->
+                <div class="px-6 py-4 border-t border-gray-100 flex gap-3">
+                    <button class="flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium text-sm">查看详情</button>
+                    <button class="flex-1 px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-indigo-600 font-medium text-sm" onclick="closeDrawer()">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 空状态示例 -->
+    <div id="emptyStateExample" class="hidden">
+        <main class="max-w-7xl mx-auto px-6 py-8">
+            <div class="bg-white rounded-xl border border-gray-200 p-12 shadow-sm text-center">
+                <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-inbox text-gray-400 text-3xl"></i>
+                </div>
+                <p class="text-gray-500 text-lg mb-2">暂无下发记录</p>
+                <p class="text-gray-400 text-sm">配置下发后将在此显示历史记录</p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // 模态框控制
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+            document.getElementById(id).classList.add('flex');
+        }
+        
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+            document.getElementById(id).classList.remove('flex');
+        }
+        
+        // 抽屉控制
+        function showBatchProgress() {
+            closeModal('batchConfirmModal');
+            document.getElementById('batchProgressDrawer').classList.remove('hidden');
+        }
+        
+        function closeDrawer() {
+            document.getElementById('batchProgressDrawer').classList.add('hidden');
+        }
+        
+        // 页面切换
+        function showDetailPage() {
+            document.getElementById('listPage').classList.add('hidden');
+            document.getElementById('detailPage').classList.remove('hidden');
+        }
+        
+        function showListPage() {
+            document.getElementById('detailPage').classList.add('hidden');
+            document.getElementById('listPage').classList.remove('hidden');
+        }
+        
+        // 删除气泡确认
+        function toggleDeletePopover() {
+            const popover = document.getElementById('deletePopover');
+            popover.classList.toggle('hidden');
+        }
+        
+        // 筛选操作
+        function handleQuery() {
+            alert('执行查询操作');
+        }
+        
+        function handleReset() {
+            document.getElementById('searchInstanceName').value = '';
+            document.getElementById('searchDeviceId').value = '';
+            document.getElementById('filterGateway').value = '';
+            document.getElementById('filterType').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterDateStart').value = '';
+            document.getElementById('filterDateEnd').value = '';
+        }
+        
+        function handleRefresh() {
+            alert('刷新列表数据');
+        }
+        
+        // 点击外部关闭模态框
+        document.querySelectorAll('.modal-backdrop').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.add('hidden');
+                    this.classList.remove('flex');
+                }
+            });
+        });
+        
+        // 点击外部关闭抽屉
+        document.getElementById('batchProgressDrawer').addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.add('hidden');
+            }
+        });
+        
+        // 点击外部关闭删除气泡
+        document.addEventListener('click', function(e) {
+            const popover = document.getElementById('deletePopover');
+            const button = e.target.closest('button');
+            if (!popover.contains(e.target) && (!button || !button.textContent.includes('删除'))) {
+                popover.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

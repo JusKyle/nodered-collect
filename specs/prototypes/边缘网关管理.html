@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>边缘网关管理 - 简约现代风格</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366F1',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white border-b border-gray-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                        <i class="fas fa-server text-white"></i>
+                    </div>
+                    <span class="text-lg font-bold text-gray-900">边缘网关管理</span>
+                </div>
+                <div class="flex items-center gap-6">
+                    <nav class="flex gap-5 text-sm text-gray-600">
+                        <a href="边缘网关管理.html" class="text-primary font-medium border-b-2 border-primary pb-1">采集网关</a>
+                        <a href="注册码管理.html" class="hover:text-primary transition-colors">注册码</a>
+                        <a href="设备模型管理.html" class="hover:text-primary transition-colors">设备模型</a>
+                        <a href="设备实例管理.html" class="hover:text-primary transition-colors">设备实例</a>
+                        <a href="配置下发与同步.html" class="hover:text-primary transition-colors">配置记录</a>
+                        <a href="断网数据缓存.html" class="hover:text-primary transition-colors">系统配置</a>
+                    </nav>
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-gray-600">Admin</span>
+                        <div class="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-gray-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 页面内容 -->
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        <!-- 列表视图 -->
+        <div id="listView">
+            <!-- 页面标题 -->
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">网关列表</h1>
+                    <p class="text-gray-500 mt-1">管理所有采集网关的注册和状态</p>
+                </div>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 font-medium flex items-center gap-2 shadow-sm" onclick="openModal('addModal')">
+                    <i class="fas fa-plus"></i>新增网关
+                </button>
+            </div>
+
+            <!-- 筛选卡片 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
+                <div class="flex gap-5 items-end">
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">网关名称</label>
+                        <input type="text" placeholder="搜索网关名称..." 
+                               class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">IP地址</label>
+                        <input type="text" placeholder="搜索IP地址..." 
+                               class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">NR版本</label>
+                        <select class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option>全部</option>
+                            <option>v3.1.2</option>
+                            <option>v3.1.1</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1.5">状态</label>
+                        <select class="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option>全部</option>
+                            <option>在线</option>
+                            <option>离线</option>
+                        </select>
+                    </div>
+                    <button class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">查询</button>
+                    <button class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm">重置</button>
+                </div>
+            </div>
+
+            <!-- 数据表格 -->
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200">
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">名称</th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">IP地址</th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">状态</th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">NR版本</th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">流数</th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">最后心跳</th>
+                            <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-microchip text-primary"></i>
+                                    </div>
+                                    <a href="#" class="font-semibold text-gray-900 hover:text-primary" onclick="showDetail('gw1')">工厂A-网关01</a>
+                                </div>
+                            </td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">192.168.1.101</td>
+                            <td class="px-5 py-4"><span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">在线</span></td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">v3.1.2</td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">12</td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">2026-06-30 11:30</td>
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-4 text-sm relative">
+                                    <button class="text-primary hover:text-indigo-800 font-medium" onclick="openModal('testModal')">测试</button>
+                                    <button class="text-gray-500 hover:text-primary font-medium" onclick="goToDevices()">设备</button>
+                                    <button class="text-red-500 hover:text-red-700 font-medium" onclick="showDeleteConfirm(this)">删除</button>
+                                    <div class="delete-confirm hidden absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-xl p-5 z-20 w-80">
+                                        <div class="flex items-start gap-3 mb-4">
+                                            <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                <i class="fas fa-trash-alt text-red-500"></i>
+                                            </div>
+                                            <div>
+                                                <p class="text-gray-900 font-semibold">确定删除网关「工厂A-网关01」吗？</p>
+                                                <p class="text-gray-500 text-sm mt-1">已关联的设备实例将保留不变</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-end gap-3">
+                                            <button class="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium" onclick="hideDeleteConfirm()">取消</button>
+                                            <button class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium" onclick="hideDeleteConfirm()">确定</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-microchip text-gray-400"></i>
+                                    </div>
+                                    <a href="#" class="font-semibold text-gray-900 hover:text-primary" onclick="showDetail('gw2')">仓库B-网关02</a>
+                                </div>
+                            </td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">192.168.2.102</td>
+                            <td class="px-5 py-4"><span class="px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">离线</span></td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">v3.1.1</td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">8</td>
+                            <td class="px-5 py-4 text-gray-600 text-sm">2026-06-30 08:15</td>
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-4 text-sm">
+                                    <button class="text-primary hover:text-indigo-800 font-medium">测试</button>
+                                    <button class="text-gray-500 hover:text-primary font-medium" onclick="goToDevices()">设备</button>
+                                    <button class="text-red-500 hover:text-red-700 font-medium">删除</button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            <div class="flex justify-between items-center mt-5">
+                <div class="flex items-center gap-2 text-sm text-gray-500">
+                    <span>共</span>
+                    <span class="font-medium text-gray-900">2</span>
+                    <span>条记录</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button class="px-3 py-1.5 bg-white border border-gray-200 text-gray-400 rounded-lg cursor-not-allowed" disabled><i class="fas fa-chevron-left text-xs"></i></button>
+                    <button class="px-3 py-1.5 bg-primary text-white rounded-lg">1</button>
+                    <button class="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50"><i class="fas fa-chevron-right text-xs"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 详情视图 -->
+        <div id="detailView" class="hidden">
+            <!-- 返回按钮 -->
+            <button class="flex items-center gap-2 text-gray-600 hover:text-primary mb-6 transition-colors" onclick="showList()">
+                <i class="fas fa-arrow-left text-sm"></i>
+                <span class="text-sm font-medium">返回网关列表</span>
+            </button>
+
+            <!-- 页头区 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start gap-4">
+                        <div class="w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-microchip text-primary text-xl"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-3 mb-2">
+                                <h1 id="detailName" class="text-2xl font-bold text-gray-900">工厂A-网关01</h1>
+                                <span id="detailStatusBadge" class="px-3 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">在线</span>
+                            </div>
+                            <div class="flex items-center gap-6 text-sm text-gray-500">
+                                <div class="flex items-center gap-1.5">
+                                    <i class="fas fa-network-wired text-gray-400 text-xs"></i>
+                                    <span>IP：<span id="detailIp" class="text-gray-700">192.168.1.101</span></span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <i class="fas fa-code-branch text-gray-400 text-xs"></i>
+                                    <span>NR版本：<span id="detailVersion" class="text-gray-700">v3.1.2</span></span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <i class="fas fa-project-diagram text-gray-400 text-xs"></i>
+                                    <span>流数：<span id="detailFlows" class="text-gray-700">12</span></span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <i class="fas fa-heartbeat text-gray-400 text-xs"></i>
+                                    <span>最后心跳：<span id="detailHeartbeat" class="text-gray-700">2026-06-30 11:30</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 relative">
+                        <button class="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium flex items-center gap-2" onclick="openModal('testModal')">
+                            <i class="fas fa-vial text-sm"></i>测试
+                        </button>
+                        <button class="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium flex items-center gap-2" onclick="goToDevices()">
+                            <i class="fas fa-microchip text-sm"></i>设备
+                        </button>
+                        <button class="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium flex items-center gap-2">
+                            <i class="fas fa-edit text-sm"></i>编辑
+                        </button>
+                        <button class="px-4 py-2 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 text-sm font-medium flex items-center gap-2" onclick="showDetailDeleteConfirm(this)">
+                            <i class="fas fa-trash-alt text-sm"></i>删除
+                        </button>
+                        <div id="detailDeleteConfirm" class="delete-confirm hidden absolute right-0 top-12 bg-white border border-gray-200 rounded-xl shadow-xl p-5 z-20 w-80">
+                            <div class="flex items-start gap-3 mb-4">
+                                <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-trash-alt text-red-500"></i>
+                                </div>
+                                <div>
+                                    <p class="text-gray-900 font-semibold">确定删除网关「<span id="detailDeleteName">工厂A-网关01</span>」吗？</p>
+                                    <p class="text-gray-500 text-sm mt-1">已关联的设备实例将保留不变</p>
+                                </div>
+                            </div>
+                            <div class="flex justify-end gap-3">
+                                <button class="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium" onclick="hideDeleteConfirm()">取消</button>
+                                <button class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium" onclick="hideDeleteConfirm()">确定</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 左侧卡片区域 -->
+            <div class="grid grid-cols-2 gap-6">
+                <!-- 基本信息卡片 -->
+                <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                    <h3 class="text-lg font-bold text-gray-900 mb-5">基本信息</h3>
+                    <div class="grid grid-cols-2 gap-y-4 gap-x-6">
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">网关名称</div>
+                            <div class="text-sm font-medium text-gray-900" id="infoName">工厂A-网关01</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">IP地址</div>
+                            <div class="text-sm font-medium text-gray-900" id="infoIp">192.168.1.101</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">端口</div>
+                            <div class="text-sm font-medium text-gray-900">1880</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">NR版本</div>
+                            <div class="text-sm font-medium text-gray-900" id="infoVersion">v3.1.2</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">注册时间</div>
+                            <div class="text-sm font-medium text-gray-900">2026-01-15 09:30</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">最后心跳</div>
+                            <div class="text-sm font-medium text-gray-900" id="infoHeartbeat">2026-06-30 11:30</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">状态</div>
+                            <div><span id="infoStatus" class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">在线</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 性能趋势卡片 -->
+                <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                    <h3 class="text-lg font-bold text-gray-900 mb-5">性能监控</h3>
+                    <div class="space-y-5">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-microchip text-blue-500 text-sm"></i>
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-700">CPU使用率</span>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">45%</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2">
+                                <div class="bg-blue-500 h-2 rounded-full" style="width: 45%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-memory text-green-500 text-sm"></i>
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-700">内存使用率</span>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">62%</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: 62%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
+                                        <i class="fas fa-hdd text-amber-500 text-sm"></i>
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-700">磁盘使用率</span>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">38%</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2">
+                                <div class="bg-amber-500 h-2 rounded-full" style="width: 38%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 缓存配置卡片 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mt-6 shadow-sm">
+                <div class="flex justify-between items-start mb-5">
+                    <h3 class="text-lg font-bold text-gray-900">缓存配置</h3>
+                    <span class="px-2.5 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">网关级</span>
+                </div>
+                <div class="space-y-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">缓存开关</div>
+                            <div class="text-xs text-gray-500 mt-1">开启后断网时数据将本地缓存</div>
+                        </div>
+                        <div class="relative">
+                            <div class="w-11 h-6 bg-primary rounded-full cursor-pointer transition-colors">
+                                <div class="absolute right-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">保存期限</div>
+                            <div class="text-xs text-gray-500 mt-1">缓存数据最长保留时间</div>
+                        </div>
+                        <div class="text-sm font-medium text-gray-900">7 天</div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">补发速率</div>
+                            <div class="text-xs text-gray-500 mt-1">网络恢复后数据补发速度</div>
+                        </div>
+                        <div class="text-sm font-medium text-gray-900">100 条/秒</div>
+                    </div>
+                    <div class="pt-3 border-t border-gray-100">
+                        <div class="flex items-start gap-2 text-xs text-gray-500">
+                            <i class="fas fa-info-circle text-gray-400 mt-0.5"></i>
+                            <span>网关级配置优先级高于平台级配置，修改后将立即同步到网关。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 缓存状态卡片 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mt-6 shadow-sm">
+                <div class="flex justify-between items-start mb-5">
+                    <h3 class="text-lg font-bold text-gray-900">缓存状态</h3>
+                    <span class="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">缓存中</span>
+                </div>
+                <div class="grid grid-cols-2 gap-6 mb-5">
+                    <div>
+                        <div class="text-xs text-gray-500 mb-1">缓存条数</div>
+                        <div class="text-2xl font-bold text-gray-900">1,286</div>
+                        <div class="text-xs text-gray-400 mt-1">条</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-500 mb-2">存储占用</div>
+                        <div class="flex items-end gap-2">
+                            <div class="text-2xl font-bold text-gray-900">45%</div>
+                        </div>
+                        <div class="w-full bg-gray-100 rounded-full h-2 mt-2">
+                            <div class="bg-primary h-2 rounded-full" style="width: 45%"></div>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-1">45 MB / 100 MB</div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-6 mb-5 pt-4 border-t border-gray-100">
+                    <div>
+                        <div class="text-xs text-gray-500 mb-1">最早数据时间</div>
+                        <div class="text-sm font-medium text-gray-900">2026-06-28 14:23:10</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-500 mb-1">最新数据时间</div>
+                        <div class="text-sm font-medium text-gray-900">2026-06-30 11:30:05</div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div class="text-xs text-gray-500">
+                        <i class="fas fa-exclamation-triangle text-amber-500 mr-1"></i>
+                        清空缓存将删除所有未补发的缓存数据，请谨慎操作
+                    </div>
+                    <button class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium flex items-center gap-2">
+                        <i class="fas fa-trash-alt text-sm"></i>清空缓存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 新增网关弹窗 -->
+    <div id="addModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[460px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">新增网关</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('addModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">网关名称 <span class="text-red-500">*</span></label>
+                    <input type="text" placeholder="请输入网关名称" maxlength="50"
+                           class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">IP地址 <span class="text-red-500">*</span></label>
+                    <input type="text" placeholder="请输入 IP 地址或域名"
+                           class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">端口 <span class="text-red-500">*</span></label>
+                    <input type="number" value="1880" min="1" max="65535"
+                           class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button class="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium" onclick="closeModal('addModal')">取消</button>
+                <button class="px-5 py-2.5 bg-primary text-white rounded-xl hover:bg-indigo-600 font-medium" onclick="closeModal('addModal')">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 测试连接结果弹窗 -->
+    <div id="testModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-[500px] overflow-hidden">
+            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-gray-900">测试连接结果</h3>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" onclick="closeModal('testModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="divide-y divide-gray-100">
+                    <div class="flex items-center gap-4 py-4">
+                        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-check text-white text-xs"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-semibold text-gray-900 text-sm">Node-RED 可达性</div>
+                            <div class="text-xs text-gray-500 mt-0.5">连接成功，API 响应正常</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 py-4">
+                        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-check text-white text-xs"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-semibold text-gray-900 text-sm">MQTT 连接</div>
+                            <div class="text-xs text-gray-500 mt-0.5">连接成功，Broker 响应正常</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 py-4">
+                        <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-times text-white text-xs"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-semibold text-gray-900 text-sm">插件状态</div>
+                            <div class="text-xs text-gray-500 mt-0.5">插件未响应，请检查插件是否正常运行</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    <span class="font-medium text-green-600">2</span> 项通过，<span class="font-medium text-red-500">1</span> 项未通过
+                </div>
+                <button class="px-5 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium" onclick="closeModal('testModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var gatewayData = {
+            gw1: {
+                name: '工厂A-网关01',
+                ip: '192.168.1.101',
+                port: '1880',
+                version: 'v3.1.2',
+                flows: '12',
+                heartbeat: '2026-06-30 11:30',
+                registerTime: '2026-01-15 09:30',
+                online: true
+            },
+            gw2: {
+                name: '仓库B-网关02',
+                ip: '192.168.2.102',
+                port: '1880',
+                version: 'v3.1.1',
+                flows: '8',
+                heartbeat: '2026-06-30 08:15',
+                registerTime: '2026-02-20 14:20',
+                online: false
+            }
+        };
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.getElementById(id).classList.remove('flex'); }
+        function showDeleteConfirm(btn) {
+            document.querySelectorAll('.delete-confirm').forEach(el => el.classList.add('hidden'));
+            btn.parentElement.querySelector('.delete-confirm').classList.remove('hidden');
+        }
+        function hideDeleteConfirm() { document.querySelectorAll('.delete-confirm').forEach(el => el.classList.add('hidden')); }
+        function showDetailDeleteConfirm(btn) {
+            document.querySelectorAll('.delete-confirm').forEach(el => el.classList.add('hidden'));
+            document.getElementById('detailDeleteConfirm').classList.remove('hidden');
+        }
+        function showDetail(gwId) {
+            var gw = gatewayData[gwId];
+            if (!gw) return;
+            document.getElementById('detailName').textContent = gw.name;
+            document.getElementById('detailIp').textContent = gw.ip;
+            document.getElementById('detailVersion').textContent = gw.version;
+            document.getElementById('detailFlows').textContent = gw.flows;
+            document.getElementById('detailHeartbeat').textContent = gw.heartbeat;
+            document.getElementById('infoName').textContent = gw.name;
+            document.getElementById('infoIp').textContent = gw.ip;
+            document.getElementById('infoVersion').textContent = gw.version;
+            document.getElementById('infoHeartbeat').textContent = gw.heartbeat;
+            document.getElementById('detailDeleteName').textContent = gw.name;
+
+            var statusBadge = document.getElementById('detailStatusBadge');
+            var infoStatus = document.getElementById('infoStatus');
+            if (gw.online) {
+                statusBadge.textContent = '在线';
+                statusBadge.className = 'px-3 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium';
+                infoStatus.textContent = '在线';
+                infoStatus.className = 'px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium';
+            } else {
+                statusBadge.textContent = '离线';
+                statusBadge.className = 'px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium';
+                infoStatus.textContent = '离线';
+                infoStatus.className = 'px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium';
+            }
+
+            document.getElementById('listView').classList.add('hidden');
+            document.getElementById('detailView').classList.remove('hidden');
+            window.scrollTo(0, 0);
+        }
+        function showList() {
+            document.getElementById('detailView').classList.add('hidden');
+            document.getElementById('listView').classList.remove('hidden');
+            hideDeleteConfirm();
+        }
+        function goToDevices() {
+            window.location.href = '设备实例管理.html';
+        }
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.delete-confirm') && !e.target.closest('button')) {
+                document.querySelectorAll('.delete-confirm').forEach(el => el.classList.add('hidden'));
+            }
+        });
+    </script>
+</body>
+</html>

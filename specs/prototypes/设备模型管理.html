@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备模型管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366F1',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .tag-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .table-row:hover {
+            background-color: #f9fafb;
+        }
+        .drawer {
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        .drawer.open {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white border-b border-gray-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                        <i class="fas fa-cubes text-white"></i>
+                    </div>
+                    <span class="text-lg font-bold text-gray-900">设备模型管理</span>
+                </div>
+                <div class="flex items-center gap-6">
+                    <nav class="flex gap-5 text-sm text-gray-600">
+                        <a href="边缘网关管理.html" class="hover:text-primary transition-colors">采集网关</a>
+                        <a href="注册码管理.html" class="hover:text-primary transition-colors">注册码</a>
+                        <a href="设备模型管理.html" class="text-primary font-medium border-b-2 border-primary pb-1">设备模型</a>
+                        <a href="设备实例管理.html" class="hover:text-primary transition-colors">设备实例</a>
+                        <a href="配置下发与同步.html" class="hover:text-primary transition-colors">配置记录</a>
+                        <a href="断网数据缓存.html" class="hover:text-primary transition-colors">系统配置</a>
+                    </nav>
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-gray-600">Admin</span>
+                        <div class="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-gray-600 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 列表页 -->
+    <main id="listPage" class="max-w-7xl mx-auto px-6 py-8">
+        <!-- 页面标题 -->
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">设备模型</h1>
+                <p class="text-gray-500 mt-1">管理设备采集模板和点位配置</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="openCreateModal()" class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 font-medium flex items-center gap-2 shadow-sm">
+                    <i class="fas fa-plus"></i>新建模板
+                </button>
+            </div>
+        </div>
+
+        <!-- 筛选卡片 -->
+        <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
+            <div class="flex gap-5 items-end">
+                <div class="flex-1">
+                    <label class="block text-xs font-medium text-gray-500 mb-1.5">模板名称</label>
+                    <input type="text" id="search-name" placeholder="搜索模板名称" 
+                           class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs font-medium text-gray-500 mb-1.5">协议类型</label>
+                    <select id="search-protocol" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="">全部</option>
+                        <option value="Modbus TCP">Modbus TCP</option>
+                        <option value="Modbus RTU">Modbus RTU</option>
+                        <option value="S7">S7</option>
+                        <option value="OPC UA">OPC UA</option>
+                        <option value="MQTT">MQTT</option>
+                        <option value="TCP">TCP</option>
+                    </select>
+                </div>
+                <button onclick="handleSearch()" class="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">查询</button>
+                <button onclick="handleReset()" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm">重置</button>
+            </div>
+        </div>
+
+        <!-- 模板列表表格 -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">模板名称</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">协议类型</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">点位数</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">版本号</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="template-list" class="bg-white divide-y divide-gray-200">
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- 详情页 -->
+    <main id="detailPage" class="max-w-7xl mx-auto px-6 py-8 hidden">
+        <!-- 返回按钮 -->
+        <button onclick="closeDetailPage()" class="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6">
+            <i class="fas fa-arrow-left"></i>
+            <span>返回列表</span>
+        </button>
+
+        <!-- 基本信息卡片 -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-lg font-semibold text-gray-900">基本信息</h2>
+                <button onclick="openEditModalFromDetail()" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-edit text-gray-500"></i>
+                    <span>编辑</span>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-2 gap-x-8 gap-y-4">
+                    <div class="flex">
+                        <span class="w-24 text-sm text-gray-500 flex-shrink-0">模型名称</span>
+                        <span class="text-sm text-gray-900 font-medium" id="detail-name">-</span>
+                    </div>
+                    <div class="flex">
+                        <span class="w-24 text-sm text-gray-500 flex-shrink-0">协议类型</span>
+                        <span class="text-sm text-gray-900" id="detail-protocol">-</span>
+                    </div>
+                    <div class="flex">
+                        <span class="w-24 text-sm text-gray-500 flex-shrink-0">模型ID</span>
+                        <span class="text-sm text-gray-900 font-mono bg-gray-50 px-2 py-0.5 rounded" id="detail-id">-</span>
+                    </div>
+                    <div class="flex">
+                        <span class="w-24 text-sm text-gray-500 flex-shrink-0">版本号</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800" id="detail-version">-</span>
+                    </div>
+                    <div class="flex">
+                        <span class="w-24 text-sm text-gray-500 flex-shrink-0">创建时间</span>
+                        <span class="text-sm text-gray-900" id="detail-time">-</span>
+                    </div>
+                    <div class="flex col-span-2">
+                        <span class="w-24 text-sm text-gray-500 flex-shrink-0">备注</span>
+                        <span class="text-sm text-gray-900" id="detail-remark">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 点位列表卡片 -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">点位列表</h2>
+                    <p class="text-sm text-gray-500 mt-0.5">共 <span id="detail-points-count">0</span> 个点位</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="openImportModal()" class="px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-upload mr-1"></i>导入
+                    </button>
+                    <button onclick="exportPoints()" class="px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-download mr-1"></i>导出
+                    </button>
+                    <button onclick="openDetailPointsModal()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium transition-colors">
+                        <i class="fas fa-plus mr-1"></i>新增点位
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">点位名称</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">地址</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">数据类型</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">读写权限</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">单位</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detail-points-list" class="bg-white divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- 新建/编辑基本信息弹窗 -->
+    <div id="basic-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-gray-500 bg-opacity-75" onclick="closeBasicModal()"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-semibold text-gray-900" id="basic-modal-title">新建模板</h3>
+                <button onclick="closeBasicModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <form id="basic-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">模型ID <span class="text-red-500">*</span></label>
+                    <input type="text" id="model-id" placeholder="输入模型ID" 
+                           class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">模型名称 <span class="text-red-500">*</span></label>
+                    <input type="text" id="model-name" placeholder="输入模型名称" 
+                           class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">协议类型 <span class="text-red-500">*</span></label>
+                    <select id="protocol-type" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent" required>
+                        <option value="">请选择协议类型</option>
+                        <option value="Modbus TCP">Modbus TCP</option>
+                        <option value="Modbus RTU">Modbus RTU</option>
+                        <option value="S7">S7</option>
+                        <option value="OPC UA">OPC UA</option>
+                        <option value="MQTT">MQTT</option>
+                        <option value="TCP">TCP</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">备注</label>
+                    <textarea id="template-remark" rows="3" placeholder="输入备注信息" 
+                              class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                </div>
+            </form>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeBasicModal()" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">取消</button>
+                <button onclick="saveBasicInfo()" class="px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 font-medium">
+                    <span id="basic-save-btn">保存</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 点位管理弹窗 -->
+    <div id="points-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-gray-500 bg-opacity-75" onclick="closePointsModal()"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-4xl p-6 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">点位管理</h3>
+                    <p class="text-sm text-gray-500 mt-0.5" id="points-modal-subtitle">编辑点位信息，保存后将升级版本号</p>
+                </div>
+                <button onclick="closePointsModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <!-- 操作栏 -->
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex gap-2">
+                    <button onclick="openImportModal()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+                        <i class="fas fa-upload mr-2"></i>导入点位
+                    </button>
+                    <button onclick="exportPoints()" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+                        <i class="fas fa-download mr-2"></i>导出点位
+                    </button>
+                </div>
+                <button onclick="openPointModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600 text-sm font-medium">
+                    <i class="fas fa-plus"></i>新增点位
+                </button>
+            </div>
+
+            <!-- 点位列表 -->
+            <div class="flex-1 overflow-y-auto border border-gray-200 rounded-lg">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">点位名称</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">地址</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">数据类型</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">读写权限</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">单位</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="points-list" class="bg-white divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-200">
+                <button onclick="closePointsModal()" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">取消</button>
+                <button onclick="savePoints()" class="px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 font-medium">
+                    <span id="points-save-btn">保存</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增/编辑点位弹窗 -->
+    <div id="point-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-gray-500 bg-opacity-75" onclick="closePointModal()"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900" id="point-modal-title">新增点位</h3>
+                    <p class="text-sm text-gray-500 mt-0.5" id="point-protocol-label"></p>
+                </div>
+                <button onclick="closePointModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <form id="point-form" class="space-y-5">
+                <!-- 基本信息区 -->
+                <div class="border-b border-gray-200 pb-5">
+                    <h4 class="text-sm font-medium text-gray-700 mb-3">基本信息</h4>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">点位ID <span class="text-red-500">*</span></label>
+                            <input type="text" id="point-id" placeholder="字母、数字、下划线" 
+                                   class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">点位名称 <span class="text-red-500">*</span></label>
+                            <input type="text" id="point-name" placeholder="输入点位名称" 
+                                   class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-xs font-medium text-gray-500 mb-1">描述</label>
+                        <input type="text" id="point-desc" placeholder="输入点位描述" 
+                               class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">数据类型 <span class="text-red-500">*</span></label>
+                            <select id="point-datatype" onchange="handleDataTypeChange()" class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="BOOL">BOOL</option>
+                                <option value="INT16">INT16</option>
+                                <option value="UINT16">UINT16</option>
+                                <option value="INT32">INT32</option>
+                                <option value="UINT32">UINT32</option>
+                                <option value="FLOAT32">FLOAT32</option>
+                                <option value="FLOAT64">FLOAT64</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">读写权限 <span class="text-red-500">*</span></label>
+                            <select id="point-access" onchange="handleAccessChange()" class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="只读">只读</option>
+                                <option value="读写">读写</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 转换配置区 -->
+                <div class="border-b border-gray-200 pb-5">
+                    <h4 class="text-sm font-medium text-gray-700 mb-3">转换配置</h4>
+                    <div class="text-xs text-gray-400 mb-3">实际值 = (原始值 × 乘系数) + 偏移量</div>
+                    
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">乘系数</label>
+                            <input type="number" id="point-multiplier" value="1" step="0.01"
+                                   class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">偏移量</label>
+                            <input type="number" id="point-offset" value="0" step="0.01"
+                                   class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div id="precision-container">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">精度</label>
+                            <input type="number" id="point-precision" value="2" min="0" max="10"
+                                   class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">单位</label>
+                            <input type="text" id="point-unit" placeholder="如：°C、%、Pa" 
+                                   class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">采集频率 (ms) <span class="text-red-500">*</span></label>
+                            <input type="number" id="point-frequency" value="1000" min="100" max="86400000"
+                                   class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="block text-xs font-medium text-gray-500 mb-1">采集超时 (ms)</label>
+                        <input type="number" id="point-timeout" value="3000" min="100" max="60000"
+                               class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                </div>
+
+                <!-- 协议特殊字段区 -->
+                <div>
+                    <h4 class="text-sm font-medium text-gray-700 mb-3">协议特殊字段</h4>
+                    
+                    <!-- Modbus TCP / RTU -->
+                    <div id="point-fields-modbus" class="protocol-field space-y-4">
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">从站地址 <span class="text-red-500">*</span></label>
+                                <input type="number" id="point-slaveaddr" min="1" max="247" placeholder="1-247"
+                                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">功能码 <span class="text-red-500">*</span></label>
+                                <select id="point-func-code" class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">寄存器地址 <span class="text-red-500">*</span></label>
+                                <input type="number" id="point-reg-addr" min="0" max="65535" placeholder="0-65535"
+                                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- S7 -->
+                    <div id="point-fields-s7" class="protocol-field space-y-4">
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">DB块号 <span class="text-red-500">*</span></label>
+                                <input type="number" id="point-db-block" min="0" max="65535" placeholder="0-65535"
+                                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">字节偏移 <span class="text-red-500">*</span></label>
+                                <input type="number" id="point-offset-addr" min="0" max="65535" placeholder="0-65535"
+                                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                            <div id="bit-offset-container">
+                                <label class="block text-xs font-medium text-gray-500 mb-1">位偏移 <span class="text-red-500">*</span></label>
+                                <select id="point-bit-offset" class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    <option value="0">0</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- OPC UA -->
+                    <div id="point-fields-opcua" class="protocol-field space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">命名空间索引 <span class="text-red-500">*</span></label>
+                                <input type="number" id="point-namespace" value="0" min="0"
+                                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">节点ID <span class="text-red-500">*</span></label>
+                                <input type="text" id="point-nodeid" placeholder="如：ns=2;s=Temperature"
+                                       class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MQTT -->
+                    <div id="point-fields-mqtt" class="protocol-field space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">字段路径 (JSONPath) <span class="text-red-500">*</span></label>
+                            <input type="text" id="point-field-path" placeholder="如：$.data.temperature"
+                                   class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <p class="text-xs text-gray-400 mt-1">用于从订阅报文中提取该点位值</p>
+                        </div>
+                    </div>
+
+                    <!-- TCP -->
+                    <div id="point-fields-tcp" class="protocol-field space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">解析规则表达式 <span class="text-red-500">*</span></label>
+                            <input type="text" id="point-parse-rule" placeholder="如：temperature=(\d+\.?\d*)"
+                                   class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <p class="text-xs text-gray-400 mt-1">用于从设备上报报文中提取该点位值</p>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+                <button onclick="closePointModal()" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">取消</button>
+                <button onclick="savePoint()" class="px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 font-medium">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入点位弹窗 -->
+    <div id="import-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-gray-500 bg-opacity-75" onclick="closeImportModal()"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-semibold text-gray-900">导入点位</h3>
+                <button onclick="closeImportModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <i class="fas fa-file-upload text-gray-400 text-4xl mb-4"></i>
+                <p class="text-gray-600 mb-4">点击或拖拽文件到此处上传</p>
+                <button onclick="document.getElementById('import-file').click()" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-indigo-600 font-medium">
+                    <i class="fas fa-folder-open mr-2"></i>选择文件
+                </button>
+                <input type="file" id="import-file" class="hidden" accept=".csv,.json">
+                <p class="text-xs text-gray-400 mt-4">支持 CSV、JSON 格式</p>
+            </div>
+
+            <div id="import-file-info" class="hidden mt-4 p-4 bg-green-50 rounded-lg">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                        <span class="text-green-700">点位导入模板.csv</span>
+                    </div>
+                    <button onclick="clearImportFile()" class="text-green-600 hover:text-green-800">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeImportModal()" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">取消</button>
+                <button onclick="importPoints()" class="px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 font-medium">确定导入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模板复制确认弹窗 -->
+    <div id="copy-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-gray-500 bg-opacity-75" onclick="closeCopyModal()"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-semibold text-gray-900">复制模板</h3>
+                <button onclick="closeCopyModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">新模型ID <span class="text-red-500">*</span></label>
+                    <input type="text" id="copy-model-id" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">新模型名称 <span class="text-red-500">*</span></label>
+                    <input type="text" id="copy-model-name" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:ring-2 focus:ring-primary focus:border-transparent" required>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="copy-points" checked class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">
+                    <label for="copy-points" class="ml-2 text-sm text-gray-600">同时复制点位配置</label>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeCopyModal()" class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">取消</button>
+                <button onclick="copyTemplate()" class="px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-indigo-600 font-medium">确认复制</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认气泡 -->
+    <div id="delete-popover" class="fixed z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-80">
+            <p class="text-sm text-gray-700 mb-4" id="delete-title">确定删除模板吗？</p>
+            <div class="flex justify-end gap-2">
+                <button onclick="closeDeletePopover()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">取消</button>
+                <button onclick="confirmDeleteAction()" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm" id="delete-btn">
+                    <span id="delete-btn-text">确定</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div id="toast" class="fixed top-4 right-4 z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-4 flex items-center">
+            <i class="fas fa-check-circle text-green-500 mr-2" id="toast-icon"></i>
+            <span class="text-sm text-gray-700" id="toast-message"></span>
+        </div>
+    </div>
+
+    <style>
+        .protocol-field { display: none; }
+        .protocol-field.active { display: block; }
+    </style>
+
+    <script>
+        const mockTemplates = [
+            // Modbus TCP 模板
+            {
+                id: 'modbus_tcp_temp_v1',
+                name: 'Modbus TCP温控设备',
+                protocol: 'Modbus TCP',
+                pointCount: 6,
+                version: 'v3',
+                createTime: '2024-01-15 14:30',
+                remark: '适用于工厂温控设备的数据采集',
+                points: [
+                    { id: 'temp_001', name: '环境温度', desc: '车间环境温度监测', dataType: 'FLOAT32', access: '只读', unit: '°C', multiplier: 0.1, offset: 0, precision: 2, frequency: 1000, timeout: 3000, slaveAddr: 1, functionCode: '03', registerAddr: 0 },
+                    { id: 'hum_001', name: '环境湿度', desc: '车间环境湿度监测', dataType: 'FLOAT32', access: '只读', unit: '%', multiplier: 1, offset: 0, precision: 1, frequency: 1000, timeout: 3000, slaveAddr: 1, functionCode: '03', registerAddr: 2 },
+                    { id: 'set_temp_001', name: '目标温度', desc: '温控目标温度设定', dataType: 'FLOAT32', access: '读写', unit: '°C', multiplier: 0.1, offset: 0, precision: 1, frequency: 5000, timeout: 3000, slaveAddr: 1, functionCode: '06', registerAddr: 10 },
+                    { id: 'run_status_001', name: '运行状态', desc: '设备运行状态位', dataType: 'BOOL', access: '只读', unit: '', multiplier: 1, offset: 0, frequency: 1000, timeout: 3000, slaveAddr: 1, functionCode: '01', registerAddr: 100 },
+                    { id: 'alarm_001', name: '告警标志', desc: '设备告警标志位', dataType: 'BOOL', access: '只读', unit: '', multiplier: 1, offset: 0, frequency: 1000, timeout: 3000, slaveAddr: 1, functionCode: '02', registerAddr: 0 },
+                    { id: 'power_001', name: '设备功率', desc: '实时功率监测', dataType: 'INT16', access: '只读', unit: 'kW', multiplier: 0.1, offset: 0, frequency: 2000, timeout: 3000, slaveAddr: 1, functionCode: '04', registerAddr: 20 },
+                ]
+            },
+            // Modbus RTU 模板
+            {
+                id: 'modbus_rtu_power_v1',
+                name: 'Modbus RTU电力监测',
+                protocol: 'Modbus RTU',
+                pointCount: 5,
+                version: 'v2',
+                createTime: '2024-01-16 10:20',
+                remark: '电力监测仪表数据采集模板',
+                points: [
+                    { id: 'voltage_001', name: 'A相电压', desc: 'A相电压监测', dataType: 'FLOAT32', access: '只读', unit: 'V', multiplier: 1, offset: 0, precision: 1, frequency: 1000, timeout: 3000, slaveAddr: 2, functionCode: '03', registerAddr: 0 },
+                    { id: 'current_001', name: 'A相电流', desc: 'A相电流监测', dataType: 'FLOAT32', access: '只读', unit: 'A', multiplier: 0.01, offset: 0, precision: 2, frequency: 1000, timeout: 3000, slaveAddr: 2, functionCode: '03', registerAddr: 2 },
+                    { id: 'power_total_001', name: '总有功功率', desc: '总有功功率', dataType: 'FLOAT32', access: '只读', unit: 'kW', multiplier: 1, offset: 0, precision: 3, frequency: 1000, timeout: 3000, slaveAddr: 2, functionCode: '03', registerAddr: 10 },
+                    { id: 'energy_001', name: '总有功电能', desc: '累计总有功电能', dataType: 'FLOAT64', access: '只读', unit: 'kWh', multiplier: 1, offset: 0, precision: 2, frequency: 60000, timeout: 5000, slaveAddr: 2, functionCode: '03', registerAddr: 20 },
+                    { id: 'pf_001', name: '功率因数', desc: '总功率因数', dataType: 'FLOAT32', access: '只读', unit: '', multiplier: 0.001, offset: 0, precision: 3, frequency: 1000, timeout: 3000, slaveAddr: 2, functionCode: '03', registerAddr: 30 },
+                ]
+            },
+            // S7 模板
+            {
+                id: 's7_plc_1200_v1',
+                name: 'S7-1200 PLC模板',
+                protocol: 'S7',
+                pointCount: 6,
+                version: 'v2',
+                createTime: '2024-01-10 09:15',
+                remark: '西门子S7-1200系列PLC标准模板',
+                points: [
+                    { id: 'motor_speed_001', name: '电机转速', desc: '主电机实际转速', dataType: 'INT16', access: '只读', unit: 'rpm', multiplier: 1, offset: 0, frequency: 500, timeout: 2000, dbBlock: 1, offsetAddr: 0 },
+                    { id: 'motor_current_001', name: '电机电流', desc: '主电机工作电流', dataType: 'FLOAT32', access: '只读', unit: 'A', multiplier: 0.01, offset: 0, precision: 2, frequency: 500, timeout: 2000, dbBlock: 1, offsetAddr: 2 },
+                    { id: 'run_status_001', name: '运行状态', desc: '设备运行状态位', dataType: 'BOOL', access: '只读', unit: '', multiplier: 1, offset: 0, frequency: 1000, timeout: 2000, dbBlock: 1, offsetAddr: 4, bitOffset: 0 },
+                    { id: 'fault_001', name: '故障标志', desc: '设备故障标志', dataType: 'BOOL', access: '只读', unit: '', multiplier: 1, offset: 0, frequency: 1000, timeout: 2000, dbBlock: 1, offsetAddr: 6, bitOffset: 0 },
+                    { id: 'target_speed_001', name: '目标转速', desc: '电机目标转速设定', dataType: 'INT16', access: '读写', unit: 'rpm', multiplier: 1, offset: 0, frequency: 2000, timeout: 2000, dbBlock: 2, offsetAddr: 0 },
+                    { id: 'pressure_001', name: '管道压力', desc: '液压系统压力', dataType: 'FLOAT32', access: '只读', unit: 'MPa', multiplier: 0.001, offset: 0, precision: 3, frequency: 500, timeout: 2000, dbBlock: 3, offsetAddr: 0 },
+                ]
+            },
+            // OPC UA 模板
+            {
+                id: 'opcua_robot_v1',
+                name: 'OPC UA工业机器人',
+                protocol: 'OPC UA',
+                pointCount: 5,
+                version: 'v1',
+                createTime: '2024-01-12 16:00',
+                remark: '工业机器人数据采集模板',
+                points: [
+                    { id: 'robot_pos_x_001', name: 'X轴位置', desc: '机器人X轴当前位置', dataType: 'FLOAT64', access: '只读', unit: 'mm', multiplier: 1, offset: 0, precision: 3, frequency: 100, timeout: 1000, namespace: 2, nodeId: 'ns=2;s=Robot.Axis.X.Position' },
+                    { id: 'robot_pos_y_001', name: 'Y轴位置', desc: '机器人Y轴当前位置', dataType: 'FLOAT64', access: '只读', unit: 'mm', multiplier: 1, offset: 0, precision: 3, frequency: 100, timeout: 1000, namespace: 2, nodeId: 'ns=2;s=Robot.Axis.Y.Position' },
+                    { id: 'robot_pos_z_001', name: 'Z轴位置', desc: '机器人Z轴当前位置', dataType: 'FLOAT64', access: '只读', unit: 'mm', multiplier: 1, offset: 0, precision: 3, frequency: 100, timeout: 1000, namespace: 2, nodeId: 'ns=2;s=Robot.Axis.Z.Position' },
+                    { id: 'robot_mode_001', name: '运行模式', desc: '机器人当前运行模式', dataType: 'INT32', access: '读写', unit: '', multiplier: 1, offset: 0, frequency: 1000, timeout: 1000, namespace: 2, nodeId: 'ns=2;s=Robot.Mode' },
+                    { id: 'robot_status_001', name: '机器人状态', desc: '机器人综合状态', dataType: 'INT32', access: '只读', unit: '', multiplier: 1, offset: 0, frequency: 500, timeout: 1000, namespace: 2, nodeId: 'ns=2;s=Robot.Status' },
+                ]
+            },
+            // MQTT 模板
+            {
+                id: 'mqtt_sensor_v1',
+                name: 'MQTT物联网传感器',
+                protocol: 'MQTT',
+                pointCount: 6,
+                version: 'v1',
+                createTime: '2024-01-18 16:45',
+                remark: 'MQTT协议传感器数据上报模板',
+                points: [
+                    { id: 'sensor_temp_001', name: '传感器温度', desc: '环境温度上报', dataType: 'FLOAT32', access: '只读', unit: '°C', multiplier: 1, offset: 0, precision: 2, frequency: 2000, timeout: 3000, fieldPath: '$.data.temperature' },
+                    { id: 'sensor_hum_001', name: '传感器湿度', desc: '环境湿度上报', dataType: 'FLOAT32', access: '只读', unit: '%', multiplier: 1, offset: 0, precision: 1, frequency: 2000, timeout: 3000, fieldPath: '$.data.humidity' },
+                    { id: 'sensor_press_001', name: '大气压力', desc: '气压传感器数据', dataType: 'FLOAT32', access: '只读', unit: 'hPa', multiplier: 1, offset: 0, precision: 1, frequency: 5000, timeout: 3000, fieldPath: '$.data.pressure' },
+                    { id: 'sensor_bat_001', name: '电池电量', desc: '设备电池电量', dataType: 'INT16', access: '只读', unit: '%', multiplier: 1, offset: 0, frequency: 60000, timeout: 5000, fieldPath: '$.device.battery' },
+                    { id: 'sensor_rssi_001', name: '信号强度', desc: '无线信号强度', dataType: 'INT16', access: '只读', unit: 'dBm', multiplier: 1, offset: 0, frequency: 60000, timeout: 5000, fieldPath: '$.device.rssi' },
+                    { id: 'sensor_count_001', name: '数据计数', desc: '上报数据包计数', dataType: 'INT32', access: '只读', unit: '', multiplier: 1, offset: 0, frequency: 2000, timeout: 3000, fieldPath: '$.data.counter' },
+                ]
+            },
+            // TCP 模板
+            {
+                id: 'tcp_inverter_v1',
+                name: 'TCP变频器模板',
+                protocol: 'TCP',
+                pointCount: 5,
+                version: 'v1',
+                createTime: '2024-01-20 11:30',
+                remark: 'TCP协议变频器数据采集模板',
+                points: [
+                    { id: 'inv_freq_out_001', name: '输出频率', desc: '变频器输出频率', dataType: 'FLOAT32', access: '只读', unit: 'Hz', multiplier: 1, offset: 0, precision: 2, frequency: 500, timeout: 2000, parseRule: 'FREQ:(\\d+\\.?\\d*)' },
+                    { id: 'inv_freq_set_001', name: '频率设定', desc: '变频器频率设定值', dataType: 'FLOAT32', access: '读写', unit: 'Hz', multiplier: 1, offset: 0, precision: 2, frequency: 1000, timeout: 2000, parseRule: 'SET:(\\d+\\.?\\d*)' },
+                    { id: 'inv_current_001', name: '输出电流', desc: '变频器输出电流', dataType: 'FLOAT32', access: '只读', unit: 'A', multiplier: 1, offset: 0, precision: 2, frequency: 500, timeout: 2000, parseRule: 'CURR:(\\d+\\.?\\d*)' },
+                    { id: 'inv_voltage_001', name: '输出电压', desc: '变频器输出电压', dataType: 'FLOAT32', access: '只读', unit: 'V', multiplier: 1, offset: 0, precision: 1, frequency: 500, timeout: 2000, parseRule: 'VOLT:(\\d+\\.?\\d*)' },
+                    { id: 'inv_status_001', name: '运行状态', desc: '变频器运行状态', dataType: 'INT16', access: '只读', unit: '', multiplier: 1, offset: 0, frequency: 1000, timeout: 2000, parseRule: 'STAT:(\\d+)' },
+                ]
+            }
+        ];
+
+        let currentTemplateId = null;
+        let currentEditPointIndex = null;
+        let isNewTemplate = true;
+        let currentPoints = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTemplateList();
+        });
+
+        function renderTemplateList(templates = mockTemplates) {
+            const tbody = document.getElementById('template-list');
+            tbody.innerHTML = templates.map(t => `
+                <tr class="table-row">
+                    <td class="px-6 py-4">
+                        <span class="text-primary hover:text-indigo-600 font-medium cursor-pointer" onclick="viewDetail('${t.id}')">${t.name}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="tag-badge ${getProtocolColor(t.protocol)}">${t.protocol}</span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${t.pointCount}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${t.version}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${t.createTime}</td>
+                    <td class="px-6 py-4 text-sm">
+                        <div class="flex gap-2">
+                            <button onclick="openPointsModal('${t.id}')" class="text-primary hover:text-indigo-600">点位</button>
+                            <button onclick="openEditModal('${t.id}')" class="text-gray-600 hover:text-gray-900">编辑</button>
+                            <button onclick="openCopyModal('${t.id}')" class="text-gray-600 hover:text-gray-900">复制</button>
+                            <button onclick="showDeletePopover(event, '${t.id}', '${t.name}')" class="text-red-600 hover:text-red-700">删除</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getProtocolColor(protocol) {
+            const colors = {
+                'Modbus TCP': 'bg-blue-100 text-blue-800',
+                'Modbus RTU': 'bg-indigo-100 text-indigo-800',
+                'S7': 'bg-green-100 text-green-800',
+                'OPC UA': 'bg-purple-100 text-purple-800',
+                'MQTT': 'bg-orange-100 text-orange-800',
+                'TCP': 'bg-gray-100 text-gray-800'
+            };
+            return colors[protocol] || 'bg-gray-100 text-gray-800';
+        }
+
+        function handleSearch() {
+            const name = document.getElementById('search-name').value;
+            const protocol = document.getElementById('search-protocol').value;
+            let filtered = mockTemplates.filter(t => {
+                if (name && !t.name.includes(name)) return false;
+                if (protocol && t.protocol !== protocol) return false;
+                return true;
+            });
+            renderTemplateList(filtered);
+        }
+
+        function handleReset() {
+            document.getElementById('search-name').value = '';
+            document.getElementById('search-protocol').value = '';
+            renderTemplateList();
+        }
+
+        function openCreateModal() {
+            isNewTemplate = true;
+            currentTemplateId = null;
+            document.getElementById('basic-modal-title').textContent = '新建模板';
+            document.getElementById('basic-form').reset();
+            document.getElementById('basic-modal').classList.remove('hidden');
+        }
+
+        function openEditModal(id) {
+            isNewTemplate = false;
+            currentTemplateId = id;
+            const template = mockTemplates.find(t => t.id === id);
+            document.getElementById('basic-modal-title').textContent = '编辑模板';
+            document.getElementById('model-id').value = template.id;
+            document.getElementById('model-name').value = template.name;
+            document.getElementById('protocol-type').value = template.protocol;
+            document.getElementById('template-remark').value = template.remark;
+            document.getElementById('basic-modal').classList.remove('hidden');
+        }
+
+        function closeBasicModal() {
+            document.getElementById('basic-modal').classList.add('hidden');
+        }
+
+        function saveBasicInfo() {
+            document.getElementById('basic-save-btn').textContent = '保存中...';
+            setTimeout(() => {
+                document.getElementById('basic-save-btn').textContent = '保存';
+                showToast(isNewTemplate ? '创建成功' : '保存成功');
+                closeBasicModal();
+                renderTemplateList();
+            }, 800);
+        }
+
+        function openPointsModal(id) {
+            currentTemplateId = id;
+            const template = mockTemplates.find(t => t.id === id);
+            currentPoints = JSON.parse(JSON.stringify(template.points));
+            document.getElementById('points-modal-subtitle').textContent = `${template.name} - 编辑点位信息，保存后将升级版本号`;
+            renderPointsList(currentPoints);
+            showPointProtocolFields(template.protocol);
+            document.getElementById('points-modal').classList.remove('hidden');
+        }
+
+        function closePointsModal() {
+            document.getElementById('points-modal').classList.add('hidden');
+        }
+
+        function renderPointsList(points) {
+            const tbody = document.getElementById('points-list');
+            tbody.innerHTML = points.map((p, i) => `
+                <tr class="table-row">
+                    <td class="px-4 py-3">${p.name}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${getPointAddress(p)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${p.dataType}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${p.access}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${p.unit || '-'}</td>
+                    <td class="px-4 py-3 text-sm">
+                        <div class="flex gap-2">
+                            <button onclick="editPoint(${i})" class="text-primary hover:text-indigo-600">编辑</button>
+                            <button onclick="deletePoint(${i})" class="text-red-600 hover:text-red-700">删除</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getPointAddress(p) {
+            if (p.slaveAddr !== undefined) return p.slaveAddr + ':' + p.registerAddr;
+            if (p.dbBlock !== undefined) return 'DB' + p.dbBlock + '.DBX' + p.offsetAddr;
+            if (p.fieldPath) return p.fieldPath;
+            return '-';
+        }
+
+        function savePoints() {
+            document.getElementById('points-save-btn').textContent = '保存中...';
+            setTimeout(() => {
+                document.getElementById('points-save-btn').textContent = '保存';
+                showToast('保存成功，已升级版本号');
+                const template = mockTemplates.find(t => t.id === currentTemplateId);
+                if (template) {
+                    template.points = currentPoints;
+                    template.pointCount = currentPoints.length;
+                    const vNum = parseInt(template.version.replace('v', '')) + 1;
+                    template.version = 'v' + vNum;
+                }
+                closePointsModal();
+                renderTemplateList();
+            }, 800);
+        }
+
+        function openPointModal() {
+            currentEditPointIndex = null;
+            const template = mockTemplates.find(t => t.id === currentTemplateId);
+            const protocol = template ? template.protocol : 'Modbus TCP';
+            
+            document.getElementById('point-modal-title').textContent = '新增点位';
+            document.getElementById('point-protocol-label').textContent = protocol + ' 协议';
+            document.getElementById('point-form').reset();
+            
+            // 初始化功能码（根据读写权限）
+            handleAccessChange();
+            // 初始化精度字段显隐
+            handleDataTypeChange();
+            // 显示对应的协议特殊字段
+            showPointProtocolFields(protocol);
+            
+            document.getElementById('point-modal').classList.remove('hidden');
+        }
+
+        function editPoint(index) {
+            currentEditPointIndex = index;
+            document.getElementById('point-modal-title').textContent = '编辑点位';
+            document.getElementById('point-modal').classList.remove('hidden');
+        }
+
+        function closePointModal() {
+            document.getElementById('point-modal').classList.add('hidden');
+        }
+
+        function savePoint() {
+            showToast('保存成功');
+            closePointModal();
+        }
+
+        function deletePoint(index) {
+            if (confirm('确定删除该点位吗？')) {
+                currentPoints.splice(index, 1);
+                renderPointsList(currentPoints);
+                showToast('删除成功');
+            }
+        }
+
+        function handleDataTypeChange() {
+            const dataType = document.getElementById('point-datatype').value;
+            const precisionContainer = document.getElementById('precision-container');
+            const bitOffsetContainer = document.getElementById('bit-offset-container');
+            // 精度字段仅对 FLOAT32/FLOAT64 可见
+            if (dataType === 'FLOAT32' || dataType === 'FLOAT64') {
+                precisionContainer.classList.remove('hidden');
+            } else {
+                precisionContainer.classList.add('hidden');
+            }
+            // S7 位偏移字段仅对 BOOL 可见
+            if (bitOffsetContainer) {
+                if (dataType === 'BOOL') {
+                    bitOffsetContainer.classList.remove('hidden');
+                } else {
+                    bitOffsetContainer.classList.add('hidden');
+                }
+            }
+        }
+
+        function handleAccessChange() {
+            // Modbus功能码根据读写权限动态切换
+            const access = document.getElementById('point-access').value;
+            const funcCodeSelect = document.getElementById('point-func-code');
+            if (!funcCodeSelect) return;
+            
+            if (access === '只读') {
+                funcCodeSelect.innerHTML = `
+                    <option value="03">03 - 读保持寄存器</option>
+                    <option value="04">04 - 读输入寄存器</option>
+                    <option value="01">01 - 读线圈</option>
+                    <option value="02">02 - 读离散输入</option>
+                `;
+            } else {
+                funcCodeSelect.innerHTML = `
+                    <option value="03">03 - 读保持寄存器</option>
+                    <option value="06">06 - 写单个寄存器</option>
+                    <option value="16">16 - 写多个寄存器</option>
+                    <option value="04">04 - 读输入寄存器</option>
+                    <option value="01">01 - 读线圈</option>
+                    <option value="05">05 - 写单个线圈</option>
+                    <option value="15">15 - 写多个线圈</option>
+                    <option value="02">02 - 读离散输入</option>
+                `;
+            }
+        }
+
+        function showPointProtocolFields(protocol) {
+            document.querySelectorAll('#point-protocol-fields .protocol-field').forEach(el => el.classList.remove('active'));
+            if (protocol === 'Modbus TCP' || protocol === 'Modbus RTU') {
+                document.getElementById('point-fields-modbus').classList.add('active');
+            } else if (protocol === 'S7') {
+                document.getElementById('point-fields-s7').classList.add('active');
+            } else if (protocol === 'OPC UA') {
+                document.getElementById('point-fields-opcua').classList.add('active');
+            } else if (protocol === 'MQTT') {
+                document.getElementById('point-fields-mqtt').classList.add('active');
+            } else if (protocol === 'TCP') {
+                document.getElementById('point-fields-tcp').classList.add('active');
+            }
+        }
+
+        function openImportModal() {
+            document.getElementById('import-modal').classList.remove('hidden');
+        }
+
+        function closeImportModal() {
+            document.getElementById('import-modal').classList.add('hidden');
+        }
+
+        function importPoints() {
+            showToast('导入成功，共导入 10 个点位');
+            closeImportModal();
+        }
+
+        function clearImportFile() {
+            document.getElementById('import-file-info').classList.add('hidden');
+        }
+
+        function exportPoints() {
+            showToast('导出成功');
+        }
+
+        function openCopyModal(id) {
+            currentTemplateId = id;
+            const template = mockTemplates.find(t => t.id === id);
+            document.getElementById('copy-model-id').value = template.id + '_copy';
+            document.getElementById('copy-model-name').value = template.name + ' 副本';
+            document.getElementById('copy-modal').classList.remove('hidden');
+        }
+
+        function closeCopyModal() {
+            document.getElementById('copy-modal').classList.add('hidden');
+        }
+
+        function copyTemplate() {
+            showToast('复制成功');
+            closeCopyModal();
+            renderTemplateList();
+        }
+
+        function viewDetail(id) {
+            const template = mockTemplates.find(t => t.id === id);
+            if (!template) return;
+            
+            currentTemplateId = id;
+            currentPoints = JSON.parse(JSON.stringify(template.points));
+            
+            // 填充基本信息
+            document.getElementById('detail-name').textContent = template.name;
+            document.getElementById('detail-protocol').textContent = template.protocol;
+            document.getElementById('detail-id').textContent = template.id;
+            document.getElementById('detail-version').textContent = template.version;
+            document.getElementById('detail-time').textContent = template.createTime;
+            document.getElementById('detail-remark').textContent = template.remark || '-';
+            
+            // 填充点位信息
+            document.getElementById('detail-points-count').textContent = template.points.length;
+            renderDetailPointsList(template.points);
+            
+            // 切换页面显示
+            document.getElementById('listPage').classList.add('hidden');
+            document.getElementById('detailPage').classList.remove('hidden');
+        }
+
+        function closeDetailPage() {
+            document.getElementById('detailPage').classList.add('hidden');
+            document.getElementById('listPage').classList.remove('hidden');
+            currentTemplateId = null;
+        }
+
+        function renderDetailPointsList(points) {
+            const tbody = document.getElementById('detail-points-list');
+            tbody.innerHTML = points.map((p, i) => `
+                <tr class="table-row">
+                    <td class="px-6 py-4">${p.name}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${getPointAddress(p)}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${p.dataType}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${p.access}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${p.unit || '-'}</td>
+                    <td class="px-6 py-4 text-sm">
+                        <div class="flex gap-2">
+                            <button onclick="openPointModal()" class="text-primary hover:text-indigo-600">编辑</button>
+                            <button onclick="deleteDetailPoint(${i})" class="text-red-600 hover:text-red-700">删除</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function deleteDetailPoint(index) {
+            if (confirm('确定删除该点位吗？')) {
+                const template = mockTemplates.find(t => t.id === currentTemplateId);
+                if (template) {
+                    template.points.splice(index, 1);
+                    currentPoints = template.points;
+                    document.getElementById('detail-points-count').textContent = template.points.length;
+                    renderDetailPointsList(template.points);
+                    showToast('删除成功');
+                }
+            }
+        }
+
+        function openDetailPointsModal() {
+            const template = mockTemplates.find(t => t.id === currentTemplateId);
+            if (template) {
+                openPointsModal(currentTemplateId);
+            }
+        }
+
+        function openEditModalFromDetail() {
+            if (currentTemplateId) {
+                openEditModal(currentTemplateId);
+            }
+        }
+
+        let deleteTargetId = null;
+
+        function showDeletePopover(event, id, name) {
+            deleteTargetId = id;
+            const popover = document.getElementById('delete-popover');
+            const rect = event.target.getBoundingClientRect();
+            document.getElementById('delete-title').textContent = `确定删除模板「${name}」吗？`;
+            popover.style.top = `${rect.bottom + 8}px`;
+            popover.style.left = `${rect.right - 320}px`;
+            popover.classList.remove('hidden');
+        }
+
+        function closeDeletePopover() {
+            document.getElementById('delete-popover').classList.add('hidden');
+            deleteTargetId = null;
+        }
+
+        function confirmDeleteAction() {
+            document.getElementById('delete-btn-text').textContent = '删除中...';
+            setTimeout(() => {
+                document.getElementById('delete-btn-text').textContent = '确定';
+                showToast('删除成功');
+                closeDeletePopover();
+                renderTemplateList();
+            }, 1000);
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-message');
+            icon.className = type === 'success' ? 'fas fa-check-circle text-green-500 mr-2' : 'fas fa-exclamation-circle text-red-500 mr-2';
+            msg.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        document.addEventListener('click', (e) => {
+            const popover = document.getElementById('delete-popover');
+            if (!popover.contains(e.target) && !e.target.textContent.includes('删除')) {
+                popover.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
