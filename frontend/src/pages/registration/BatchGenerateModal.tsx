@@ -29,17 +29,19 @@ const validityOptions = [
   { value: 30, label: '30 天' },
   { value: 90, label: '90 天' },
   { value: 180, label: '180 天' },
-  { value: 3650, label: '永不过期' }
+  { value: 3650, label: '永不过期' },
+  { value: -1, label: '自定义' },
 ]
 
 function BatchGenerateModal({ isOpen, onClose, onSuccess }: BatchGenerateModalProps) {
   const { batchGenerate } = useRegistrationCodeStore()
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([])
+  const [showCustomDays, setShowCustomDays] = useState(false)
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, watch } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, watch, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      count: 10,
+      count: 1,
       validityDays: 30
     }
   })
@@ -47,6 +49,7 @@ function BatchGenerateModal({ isOpen, onClose, onSuccess }: BatchGenerateModalPr
   const handleClose = () => {
     reset()
     setGeneratedCodes([])
+    setShowCustomDays(false)
     onClose()
   }
 
@@ -68,95 +71,85 @@ function BatchGenerateModal({ isOpen, onClose, onSuccess }: BatchGenerateModalPr
     }
   }
 
+  const handleValiditySelect = (value: number) => {
+    if (value === -1) {
+      setShowCustomDays(true)
+    } else {
+      setShowCustomDays(false)
+      setValue('validityDays', value)
+    }
+  }
+
   if (!isOpen) return null
 
+  const currentValidity = watch('validityDays')
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">批量生成注册码</h2>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-2xl w-[440px] overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-gray-900">批量生成注册码</h3>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <i className="fas fa-times"></i>
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto">
+        <div className="p-6">
           {generatedCodes.length === 0 ? (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  生成数量 <span className="text-gray-400">(1-50个)</span>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  生成数量 <span className="text-red-500">*</span>
                 </label>
                 <input
                   {...register('count', { valueAsNumber: true })}
                   type="number"
                   min={1}
                   max={50}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                    errors.count ? 'border-red-500' : 'border-gray-300'
+                  placeholder="1-50"
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                    errors.count ? 'border-red-500' : 'border-gray-200'
                   }`}
                 />
-                {errors.count && <p className="mt-1 text-sm text-red-500">{errors.count.message}</p>}
+                <p className="text-xs text-gray-400 mt-1.5">单次最多生成 50 个注册码</p>
+                {errors.count && <p className="mt-1.5 text-xs text-red-500">{errors.count.message}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">有效期</label>
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  {validityOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => register('validityDays', { value: opt.value })}
-                      onClickCapture={(e) => {
-                        e.preventDefault()
-                        reset({ count: watch('count'), validityDays: opt.value })
-                      }}
-                      className={`px-3 py-2 text-sm border rounded-lg transition-colors ${
-                        watch('validityDays') === opt.value
-                          ? 'bg-primary-50 border-primary-500 text-primary-700'
-                          : 'border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  有效期 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={showCustomDays ? -1 : currentValidity}
+                  onChange={(e) => handleValiditySelect(Number(e.target.value))}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  {validityOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
-                </div>
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm text-gray-500">自定义：</label>
-                  <input
-                    {...register('validityDays', { valueAsNumber: true })}
-                    type="number"
-                    min={1}
-                    max={3650}
-                    className={`w-32 px-3 py-1 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                      errors.validityDays ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
-                  <span className="text-sm text-gray-500">天</span>
-                </div>
-                {errors.validityDays && <p className="mt-1 text-sm text-red-500">{errors.validityDays.message}</p>}
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isSubmitting ? '生成中...' : '生成'}
-                </button>
+                </select>
+                {showCustomDays && (
+                  <div className="mt-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        {...register('validityDays', { valueAsNumber: true })}
+                        type="number"
+                        min={1}
+                        max={3650}
+                        placeholder="请输入天数"
+                        className={`flex-1 px-4 py-2.5 bg-gray-50 border rounded-lg text-gray-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm ${
+                          errors.validityDays ? 'border-red-500' : 'border-gray-200'
+                        }`}
+                      />
+                      <span className="text-sm text-gray-500">天</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1.5">范围：1 - 3650 天</p>
+                  </div>
+                )}
+                {errors.validityDays && <p className="mt-1.5 text-xs text-red-500">{errors.validityDays.message}</p>}
               </div>
             </form>
           ) : (
@@ -167,17 +160,17 @@ function BatchGenerateModal({ isOpen, onClose, onSuccess }: BatchGenerateModalPr
                 </p>
                 <button
                   onClick={copyAllCodes}
-                  className="text-sm text-primary-600 hover:text-primary-700"
+                  className="text-sm text-primary-500 hover:text-indigo-600 font-medium transition-colors"
                 >
                   复制全部
                 </button>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-                <ul className="space-y-1">
+              <div className="bg-gray-50 rounded-xl p-4 max-h-64 overflow-y-auto border border-gray-100">
+                <ul className="space-y-1.5">
                   {generatedCodes.map((code, index) => (
                     <li
                       key={index}
-                      className="flex items-center justify-between text-sm font-mono text-gray-700 py-1 hover:bg-white rounded px-2"
+                      className="flex items-center justify-between text-sm font-mono text-gray-700 py-1.5 px-2 hover:bg-white rounded-lg transition-colors"
                     >
                       <span>{code}</span>
                       <button
@@ -185,25 +178,44 @@ function BatchGenerateModal({ isOpen, onClose, onSuccess }: BatchGenerateModalPr
                           navigator.clipboard.writeText(code)
                           showToast('已复制', 'success')
                         }}
-                        className="text-gray-400 hover:text-gray-600"
+                        className="text-gray-400 hover:text-primary-500 transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
+                        <i className="fas fa-copy text-xs"></i>
                       </button>
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={handleClose}
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
-                >
-                  完成
-                </button>
-              </div>
             </div>
+          )}
+        </div>
+
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+          {generatedCodes.length === 0 ? (
+            <>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit(onSubmit)}
+                disabled={isSubmitting}
+                className="px-5 py-2.5 bg-primary-500 text-white rounded-xl hover:bg-indigo-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isSubmitting ? '生成中...' : '生成'}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleClose}
+              className="px-5 py-2.5 bg-primary-500 text-white rounded-xl hover:bg-indigo-600 font-medium transition-colors"
+            >
+              完成
+            </button>
           )}
         </div>
       </div>

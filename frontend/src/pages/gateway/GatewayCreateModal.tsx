@@ -17,7 +17,7 @@ const schema = z.object({
     .max(50, '网关名称不能超过50个字符'),
   address: z
     .string()
-    .min(1, '请输入地址')
+    .min(1, '请输入IP地址')
     .regex(/^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$|^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/, '请输入合法的 IP 或域名'),
   port: z
     .number()
@@ -74,78 +74,86 @@ function GatewayCreateModal({ isOpen, onClose }: GatewayCreateModalProps) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-900">激活网关</h2>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-2xl w-[460px] overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-gray-900">新增网关</h3>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <i className="fas fa-times"></i>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">网关名称 *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              网关名称 <span className="text-red-500">*</span>
+            </label>
             <input
               {...register('name')}
               type="text"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm ${errors.name ? 'border-red-500' : 'border-gray-200'}`}
               placeholder="请输入网关名称"
+              maxLength={50}
+              className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                errors.name ? 'border-red-500' : 'border-gray-200'
+              }`}
             />
-            {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>}
+            {errors.name && <p className="mt-1.5 text-xs text-red-500">{errors.name.message}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">网关地址 *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              IP地址 <span className="text-red-500">*</span>
+            </label>
             <input
               {...register('address')}
               type="text"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm ${errors.address ? 'border-red-500' : 'border-gray-200'}`}
               placeholder="请输入 IP 地址或域名"
+              className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                errors.address ? 'border-red-500' : 'border-gray-200'
+              }`}
             />
-            {errors.address && <p className="mt-1 text-xs text-red-500">{errors.address.message}</p>}
+            {errors.address && <p className="mt-1.5 text-xs text-red-500">{errors.address.message}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">端口 *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              端口 <span className="text-red-500">*</span>
+            </label>
             <input
               {...register('port', { valueAsNumber: true })}
               type="number"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm ${errors.port ? 'border-red-500' : 'border-gray-200'}`}
-              placeholder="请输入端口号"
+              min={1}
+              max={65535}
+              className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                errors.port ? 'border-red-500' : 'border-gray-200'
+              }`}
             />
-            {errors.port && <p className="mt-1 text-xs text-red-500">{errors.port.message}</p>}
+            {errors.port && <p className="mt-1.5 text-xs text-red-500">{errors.port.message}</p>}
           </div>
 
-          <p className="text-xs text-gray-500">
-            系统将自动生成 Admin Token 并下发心跳流，网关激活后将自动开始上报心跳。
-          </p>
-
           {errorMsg && (
-            <div className="p-3 rounded-lg text-sm bg-red-50 text-red-600">
+            <div className="p-3 rounded-xl text-sm bg-red-50 text-red-600 border border-red-100">
               {errorMsg}
             </div>
           )}
 
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 -mx-6 -mb-6 mt-4 flex justify-end gap-3">
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2.5 bg-primary-500 text-white rounded-xl hover:bg-indigo-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isSubmitting ? '激活中...' : '确认激活'}
+              {isSubmitting ? '激活中...' : '确认'}
             </button>
           </div>
         </form>

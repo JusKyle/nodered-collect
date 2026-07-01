@@ -66,7 +66,7 @@ export const useSyncStore = create<SyncStore>((set, get) => ({
   },
 
   setPage: (page) => {
-    const { fetchRecords, queryParams } = get()
+    const { fetchRecords } = get()
     fetchRecords({ page })
   },
 

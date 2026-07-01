@@ -15,6 +15,7 @@ interface RegistrationCodeStore {
   fetchCodes: (query?: RegistrationCodeListQuery) => Promise<void>
   batchGenerate: (data: BatchGenerateRequest) => Promise<RegistrationCode[]>
   revokeCode: (id: string) => Promise<void>
+  deleteCode: (id: string) => Promise<void>
   setPage: (page: number) => void
   setFilterStatus: (status: string) => void
   setFilterCode: (code: string) => void
@@ -38,8 +39,8 @@ export const useRegistrationCodeStore = create<RegistrationCodeStore>((set, get)
       const params: RegistrationCodeListQuery = {
         page: query?.page ?? state.page,
         pageSize: query?.pageSize ?? state.pageSize,
-        status: query?.status ?? (state.filterStatus as RegistrationCodeListQuery['status']) || undefined,
-        code: query?.code ?? state.filterCode || undefined
+        status: (query?.status ?? (state.filterStatus as RegistrationCodeListQuery['status'])) || undefined,
+        code: (query?.code ?? state.filterCode) || undefined
       }
       if (!params.status) delete params.status
       if (!params.code) delete params.code
@@ -64,6 +65,10 @@ export const useRegistrationCodeStore = create<RegistrationCodeStore>((set, get)
 
   revokeCode: async (id: string) => {
     await registrationApi.revokeRegistrationCode(id)
+  },
+
+  deleteCode: async (id: string) => {
+    await registrationApi.deleteRegistrationCode(id)
   },
 
   setPage: (page) => set({ page }),

@@ -4,107 +4,56 @@ interface TestResultModalProps {
   isOpen: boolean
   onClose: () => void
   results: TestResultItem[]
-  allPassed: boolean
-  gatewayName?: string
 }
 
-function TestResultModal({ isOpen, onClose, results, allPassed, gatewayName }: TestResultModalProps) {
+function TestResultModal({ isOpen, onClose, results }: TestResultModalProps) {
   if (!isOpen) return null
 
+  const passedCount = results.filter(r => r.passed).length
+  const failedCount = results.filter(r => !r.passed).length
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">连接测试结果</h2>
-            {gatewayName && <p className="text-sm text-gray-500 mt-1">{gatewayName}</p>}
-          </div>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-2xl w-[500px] overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-gray-900">测试连接结果</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <i className="fas fa-times"></i>
           </button>
         </div>
 
         <div className="p-6">
-          <div className={`p-4 rounded-lg mb-4 ${
-            allPassed ? 'bg-green-50' : 'bg-red-50'
-          }`}>
-            <div className="flex items-center gap-3">
-              {allPassed ? (
-                <>
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-green-800">全部通过</p>
-                    <p className="text-sm text-green-600">网关连接正常，所有测试项已通过</p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-red-800">存在未通过项</p>
-                    <p className="text-sm text-red-600">部分测试项未通过，请检查下方详情</p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-3">
+          <div className="divide-y divide-gray-100">
             {results.map((item, index) => (
-              <div
-                key={index}
-                className={`flex items-center justify-between p-3 rounded-lg border ${
-                  item.passed
-                    ? 'bg-white border-green-100'
-                    : 'bg-white border-red-100'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  {item.passed ? (
-                    <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </div>
-                  )}
-                  <span className="text-sm font-medium text-gray-700">{item.name}</span>
-                </div>
-                <span className={`text-xs ${
-                  item.passed ? 'text-green-600' : 'text-red-600'
+              <div key={index} className="flex items-center gap-4 py-4">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  item.passed ? 'bg-green-500' : 'bg-red-500'
                 }`}>
-                  {item.message}
-                </span>
+                  <i className={`fas ${item.passed ? 'fa-check' : 'fa-times'} text-white text-xs`}></i>
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900 text-sm">{item.name}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{item.message}</div>
+                </div>
               </div>
             ))}
           </div>
+        </div>
 
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              关闭
-            </button>
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            <span className="font-medium text-green-600">{passedCount}</span> 项通过，
+            <span className="font-medium text-red-500"> {failedCount}</span> 项未通过
           </div>
+          <button
+            onClick={onClose}
+            className="px-5 py-2 bg-primary-500 text-white rounded-lg hover:bg-indigo-600 text-sm font-medium transition-colors"
+          >
+            关闭
+          </button>
         </div>
       </div>
     </div>

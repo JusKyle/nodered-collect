@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getPerformanceHistory } from '../../api/gateway.api'
-import type { PerformancePoint } from '../../api/gateway.api'
+import { getPerformanceHistory } from '../api/gateway.api'
+import type { PerformancePoint } from '../api/gateway.api'
 
 interface PerformanceMonitorProps {
   gatewayId: string
@@ -69,7 +69,7 @@ function PerformanceMonitor({ gatewayId }: PerformanceMonitorProps) {
 
     const pathData = points
       .filter(p => p !== null)
-      .reduce((acc, p, i, arr) => {
+      .reduce((acc, p, i) => {
         return acc + (i === 0 ? `M ${p}` : ` L ${p}`)
       }, '')
 
@@ -119,44 +119,44 @@ function PerformanceMonitor({ gatewayId }: PerformanceMonitorProps) {
   const diskValues = data.map(d => d.diskUsage)
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold text-gray-900">性能监控</h2>
-        <div className="flex items-center space-x-2">
+    <div>
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">时间范围</span>
           <select
             value={interval}
             onChange={(e) => setIntervalVal(e.target.value as any)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50"
           >
             {intervalOptions.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          <button
-            onClick={loadData}
-            className="text-sm text-primary-600 hover:text-primary-700"
-          >
-            刷新
-          </button>
         </div>
+        <button
+          onClick={loadData}
+          className="text-xs text-primary-500 hover:text-indigo-600 flex items-center gap-1 transition-colors"
+        >
+          <i className="fas fa-sync-alt text-[10px]"></i>刷新
+        </button>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-48">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <div className="flex items-center justify-center h-40">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {renderMiniChart(cpuValues, '#3b82f6', 'CPU')}
-          {renderMiniChart(memValues, '#10b981', 'Memory')}
-          {renderMiniChart(diskValues, '#f59e0b', 'Disk')}
+        <div className="grid grid-cols-3 gap-4">
+          {renderMiniChart(cpuValues, '#6366F1', 'CPU')}
+          {renderMiniChart(memValues, '#10B981', 'Memory')}
+          {renderMiniChart(diskValues, '#F59E0B', 'Disk')}
         </div>
       )}
 
       {data.length === 0 && !loading && (
         <div className="text-center py-8 text-gray-400">
-          <p>暂无性能数据</p>
-          <p className="text-sm mt-1">等待网关上报心跳数据</p>
+          <p className="text-sm">暂无性能数据</p>
+          <p className="text-xs mt-1">等待网关上报心跳数据</p>
         </div>
       )}
     </div>

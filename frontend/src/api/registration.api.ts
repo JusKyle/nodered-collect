@@ -1,4 +1,4 @@
-import { api } from '../utils/api'
+import api from './axios'
 
 export interface RegistrationCode {
   id: string
@@ -7,6 +7,7 @@ export interface RegistrationCode {
   status: 'UNUSED' | 'USED' | 'EXPIRED' | 'REVOKED'
   expiresAt: string
   gatewayId: string | null
+  gatewayName: string | null
   usedAt: string | null
   revokedAt: string | null
   createdAt: string
@@ -59,4 +60,8 @@ export const batchGenerateRegistrationCodes = async (
 export const revokeRegistrationCode = async (id: string): Promise<RegistrationCode> => {
   const response = await api.post(`/registration/codes/${id}/revoke`)
   return response.data
+}
+
+export const deleteRegistrationCode = async (id: string): Promise<void> => {
+  await api.delete(`/registration/codes/${id}`)
 }

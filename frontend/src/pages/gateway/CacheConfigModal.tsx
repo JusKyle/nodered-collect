@@ -30,7 +30,7 @@ function CacheConfigModal({ isOpen, onClose, gateway, onSuccess }: CacheConfigMo
     cacheReplayRate: number
   } | null>(null)
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, watch, setValue } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, watch } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       usePlatformDefault: true,
@@ -41,6 +41,7 @@ function CacheConfigModal({ isOpen, onClose, gateway, onSuccess }: CacheConfigMo
   })
 
   const usePlatformDefault = watch('usePlatformDefault')
+  const cacheEnabled = watch('cacheEnabled')
 
   useEffect(() => {
     if (isOpen && gateway) {
@@ -55,9 +56,9 @@ function CacheConfigModal({ isOpen, onClose, gateway, onSuccess }: CacheConfigMo
       setPlatformConfig(config)
 
       const hasGatewayConfig =
-        gateway.cacheEnabled !== null && gateway.cacheEnabled !== undefined ||
-        gateway.cacheRetentionDays !== null && gateway.cacheRetentionDays !== undefined ||
-        gateway.cacheReplayRate !== null && gateway.cacheReplayRate !== undefined
+        (gateway.cacheEnabled !== null && gateway.cacheEnabled !== undefined) ||
+        (gateway.cacheRetentionDays !== null && gateway.cacheRetentionDays !== undefined) ||
+        (gateway.cacheReplayRate !== null && gateway.cacheReplayRate !== undefined)
 
       reset({
         usePlatformDefault: !hasGatewayConfig,
@@ -89,17 +90,15 @@ function CacheConfigModal({ isOpen, onClose, gateway, onSuccess }: CacheConfigMo
   if (!isOpen || !gateway) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">缓存配置</h2>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-2xl w-[480px] overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-gray-900">缓存配置</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <i className="fas fa-times"></i>
           </button>
         </div>
 
@@ -107,7 +106,7 @@ function CacheConfigModal({ isOpen, onClose, gateway, onSuccess }: CacheConfigMo
           <div className="flex items-center justify-between py-2">
             <div>
               <p className="font-medium text-gray-900">使用平台默认配置</p>
-              <p className="text-sm text-gray-500">开启后使用平台级配置，网关级配置不生效</p>
+              <p className="text-sm text-gray-500 mt-0.5">开启后使用平台级配置，网关级配置不生效</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -115,7 +114,7 @@ function CacheConfigModal({ isOpen, onClose, gateway, onSuccess }: CacheConfigMo
                 {...register('usePlatformDefault')}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+              <div className="w-12 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-md peer-checked:bg-primary-500"></div>
             </label>
           </div>
 
@@ -124,72 +123,81 @@ function CacheConfigModal({ isOpen, onClose, gateway, onSuccess }: CacheConfigMo
               <div>
                 <p className="font-medium text-gray-900">断网缓存</p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className={`relative inline-flex items-center cursor-pointer ${usePlatformDefault ? 'opacity-50 pointer-events-none' : ''}`}>
                 <input
                   type="checkbox"
                   {...register('cacheEnabled')}
-                  disabled={usePlatformDefault}
                   className="sr-only peer"
                 />
-                <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600 ${usePlatformDefault ? 'opacity-50' : ''}`}></div>
+                <div className="w-12 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-md peer-checked:bg-primary-500"></div>
               </label>
             </div>
 
-            <div className={`mt-4 ${usePlatformDefault ? 'opacity-50 pointer-events-none' : ''}`}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                缓存保存期限 <span className="text-gray-400">(天)</span>
-              </label>
-              <input
-                {...register('cacheRetentionDays', { valueAsNumber: true })}
-                type="number"
-                min={1}
-                max={365}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                  errors.cacheRetentionDays ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.cacheRetentionDays && (
-                <p className="mt-1 text-sm text-red-500">{errors.cacheRetentionDays.message}</p>
-              )}
-              {platformConfig && usePlatformDefault && (
-                <p className="mt-1 text-xs text-gray-400">平台默认：{platformConfig.cacheRetentionDays} 天</p>
-              )}
-            </div>
+            <div className={`mt-5 space-y-5 ${usePlatformDefault ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">保存期限</label>
+                <select
+                  {...register('cacheRetentionDays', { valueAsNumber: true })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50"
+                >
+                  <option value={7}>7 天</option>
+                  <option value={15}>15 天</option>
+                  <option value={30}>30 天</option>
+                  <option value={60}>60 天</option>
+                  <option value={90}>90 天</option>
+                </select>
+                {errors.cacheRetentionDays && (
+                  <p className="mt-1.5 text-xs text-red-500">{errors.cacheRetentionDays.message}</p>
+                )}
+                {platformConfig && usePlatformDefault && (
+                  <p className="mt-1.5 text-xs text-gray-400">平台默认：{platformConfig.cacheRetentionDays} 天</p>
+                )}
+                {!usePlatformDefault && (
+                  <p className="mt-1.5 text-xs text-gray-500">超过保留期限的缓存数据自动清理</p>
+                )}
+              </div>
 
-            <div className={`mt-4 ${usePlatformDefault ? 'opacity-50 pointer-events-none' : ''}`}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                缓存补发速率 <span className="text-gray-400">(条/秒)</span>
-              </label>
-              <input
-                {...register('cacheReplayRate', { valueAsNumber: true })}
-                type="number"
-                min={1}
-                max={500}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                  errors.cacheReplayRate ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.cacheReplayRate && (
-                <p className="mt-1 text-sm text-red-500">{errors.cacheReplayRate.message}</p>
-              )}
-              {platformConfig && usePlatformDefault && (
-                <p className="mt-1 text-xs text-gray-400">平台默认：{platformConfig.cacheReplayRate} 条/秒</p>
+              {cacheEnabled && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">补发速率</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      {...register('cacheReplayRate', { valueAsNumber: true })}
+                      type="number"
+                      min={1}
+                      max={500}
+                      className={`w-32 px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50 ${
+                        errors.cacheReplayRate ? 'border-red-500' : 'border-gray-200'
+                      }`}
+                    />
+                    <span className="text-sm text-gray-600">条/秒</span>
+                  </div>
+                  {errors.cacheReplayRate && (
+                    <p className="mt-1.5 text-xs text-red-500">{errors.cacheReplayRate.message}</p>
+                  )}
+                  {platformConfig && usePlatformDefault && (
+                    <p className="mt-1.5 text-xs text-gray-400">平台默认：{platformConfig.cacheReplayRate} 条/秒</p>
+                  )}
+                  {!usePlatformDefault && (
+                    <p className="mt-1.5 text-xs text-gray-500">网络恢复后按此速率补发缓存数据（范围：1-500）</p>
+                  )}
+                </div>
               )}
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t">
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 -mx-6 -mb-6 mt-4 flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
             >
               取消
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2.5 bg-primary-500 text-white rounded-xl hover:bg-indigo-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isSubmitting ? '保存中...' : '保存'}
             </button>

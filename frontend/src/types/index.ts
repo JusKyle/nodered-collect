@@ -34,6 +34,7 @@ export interface DeviceModel {
 }
 
 export interface Point {
+  id?: string
   name: string
   code: string
   address: string
@@ -41,6 +42,7 @@ export interface Point {
   dataType: string
   unit?: string
   description?: string
+  readWrite?: string
 }
 
 export interface ModelVersion {
@@ -72,15 +74,16 @@ export interface DeviceInstance {
 
 export interface SyncRecord {
   id: string
-  type: 'DEPLOY' | 'UNDEPLOY' | 'REDEPLOY'
+  type: 'DEPLOY' | 'UNDEPLOY' | 'REDEPLOY' | 'HEARTBEAT' | 'COLLECT' | 'INIT'
   gatewayId: string
   gateway?: { id: string; name: string }
   deviceInstanceId?: string
   deviceInstance?: { id: string; name: string }
-  status: 'SUCCESS' | 'FAILED' | 'PENDING'
+  status: 'SUCCESS' | 'FAILED' | 'PENDING' | 'RUNNING'
   message?: string
   payload?: any
   retryCount?: number
+  operator?: string
   createdAt: string
 }
 

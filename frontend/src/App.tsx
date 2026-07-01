@@ -4,6 +4,7 @@ import MainLayout from './layouts/MainLayout'
 import GatewayList from './pages/gateway/GatewayList'
 import GatewayDetail from './pages/gateway/GatewayDetail'
 import DeviceModelList from './pages/device-model/DeviceModelList'
+import DeviceModelDetail from './pages/device-model/DeviceModelDetail'
 import DeviceInstanceList from './pages/device-instance/DeviceInstanceList'
 import SyncRecords from './pages/sync/SyncRecords'
 import RegistrationCodeList from './pages/registration/RegistrationCodeList'
@@ -50,6 +51,7 @@ function App() {
           <Route path="gateways" element={<GatewayList />} />
           <Route path="gateways/:id" element={<GatewayDetail />} />
           <Route path="device-models" element={<DeviceModelList />} />
+          <Route path="device-models/:id" element={<DeviceModelDetail />} />
           <Route path="device-instances" element={<DeviceInstanceList />} />
           <Route path="sync" element={<SyncRecords />} />
           <Route path="registration-codes" element={<RegistrationCodeList />} />

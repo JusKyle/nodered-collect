@@ -2,12 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGatewayStore } from '../../stores/gateway.store'
 import { useGatewaySSE } from '../../hooks/useGatewaySSE'
-import DataTable from '../../components/DataTable'
-import StatusBadge from '../../components/StatusBadge'
 import GatewayCreateModal from './GatewayCreateModal'
-import GatewayEditModal from './GatewayEditModal'
-import RegistrationCodeModal from './RegistrationCodeModal'
-import DeleteConfirmBubble from './DeleteConfirmBubble'
 import TestResultModal from './TestResultModal'
 import * as gatewayApi from '../../api/gateway.api'
 import type { Gateway } from '../../types'
@@ -22,7 +17,6 @@ function GatewayList() {
     fetchGateways,
     updateGatewayStatus,
     page,
-    pageSize,
     total,
     totalPages,
     filterName,
@@ -31,15 +25,15 @@ function GatewayList() {
     setFilterName,
     setFilterStatus
   } = useGatewayStore()
-  const [searchInput, setSearchInput] = useState('')
+
+  const [searchName, setSearchName] = useState('')
+  const [searchIp, setSearchIp] = useState('')
+  const [filterNrVersion, setFilterNrVersion] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isRegistrationCodeModalOpen, setIsRegistrationCodeModalOpen] = useState(false)
   const [isTestResultModalOpen, setIsTestResultModalOpen] = useState(false)
-  const [selectedGateway, setSelectedGateway] = useState<Gateway | null>(null)
   const [testResults, setTestResults] = useState<TestResultItem[]>([])
-  const [testAllPassed, setTestAllPassed] = useState(false)
   const [testConnLoading, setTestConnLoading] = useState<string | null>(null)
+  const [activeDeleteId, setActiveDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchGateways()
@@ -55,34 +49,23 @@ function GatewayList() {
   })
 
   const handleSearch = () => {
-    setFilterName(searchInput)
+    setFilterName(searchName)
+    setPage(1)
   }
 
-  const handleStatusFilter = (status: string) => {
-    setFilterStatus(status)
+  const handleReset = () => {
+    setSearchName('')
+    setSearchIp('')
+    setFilterNrVersion('')
+    setFilterStatus('')
+    setFilterName('')
+    setPage(1)
   }
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setPage(newPage)
     }
-  }
-
-  const columns = [
-    { key: 'name', label: '名称' },
-    { key: 'address', label: '地址' },
-    { key: 'port', label: '端口' },
-    { key: 'status', label: '状态' },
-    { key: 'nodeRedVersion', label: 'NR 版本' },
-    { key: 'ip', label: 'IP' },
-    { key: 'flowCount', label: '流数' },
-    { key: 'lastHeartbeat', label: '最后心跳' },
-    { key: 'actions', label: '操作' },
-  ]
-
-  const handleEditClick = (gateway: Gateway) => {
-    setSelectedGateway(gateway)
-    setIsEditModalOpen(true)
   }
 
   const handleTestConnection = async (gateway: Gateway) => {
@@ -93,14 +76,7 @@ function GatewayList() {
         port: gateway.port,
       })
       setTestResults(result.results)
-      setTestAllPassed(result.allPassed)
-      setSelectedGateway(gateway)
       setIsTestResultModalOpen(true)
-      if (result.allPassed) {
-        showToast('连接测试全部通过', 'success')
-      } else {
-        showToast('部分测试项未通过', 'error')
-      }
       fetchGateways()
     } catch (error: any) {
       showToast(error.response?.data?.message || '测试连接失败', 'error')
@@ -109,184 +85,252 @@ function GatewayList() {
     }
   }
 
-  const handleShowDeployedDevices = (gateway: Gateway) => {
+  const handleGoToDevices = (gateway: Gateway) => {
     navigate(`/device-instances?gateway=${encodeURIComponent(gateway.name)}`)
   }
 
-  const renderRow = (gateway: typeof gateways[0]) => (
-    <tr key={gateway.id} className="hover:bg-gray-50">
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm font-medium text-gray-900 cursor-pointer hover:text-primary transition-colors"
-          onClick={() => navigate(`/gateways/${gateway.id}`)}>
-          {gateway.name}
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-500">{gateway.address}</div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-500">{gateway.port}</div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        {gateway.status === 'TOKEN_EXPIRED' ? (
-          <StatusBadge
-            status={gateway.status}
-            onClick={() => handleEditClick(gateway)}
-            tooltip="点击更新 Token"
-          />
-        ) : (
-          <StatusBadge status={gateway.status} />
-        )}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-500">{gateway.nodeRedVersion || '-'}</div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-500">{gateway.ip || '-'}</div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-500">{gateway.flowCount ?? '-'}</div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm text-gray-500">
-          {gateway.lastHeartbeat ? new Date(gateway.lastHeartbeat).toLocaleString() : '-'}
-        </div>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => handleTestConnection(gateway)}
-            disabled={testConnLoading === gateway.id}
-            className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
-          >
-            {testConnLoading === gateway.id ? '测试中...' : '测试连接'}
-          </button>
-          <button
-            onClick={() => handleEditClick(gateway)}
-            className="text-primary-600 hover:text-primary-900"
-          >
-            编辑
-          </button>
-          <button
-            onClick={() => handleShowDeployedDevices(gateway)}
-            className="text-purple-600 hover:text-purple-900"
-          >
-            已下发设备
-          </button>
-          <DeleteConfirmBubble gateway={gateway} onDelete={fetchGateways} />
-        </div>
-      </td>
-    </tr>
-  )
+  const formatDate = (date: Date | string | null | undefined) => {
+    if (!date) return '-'
+    const d = new Date(date)
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${year}-${month}-${day} ${hours}:${minutes}`
+  }
+
+  const getStatusBadge = (status: string) => {
+    if (status === 'ONLINE') {
+      return <span className="px-2.5 py-1 bg-green-50 text-green-600 rounded-full text-xs font-medium">在线</span>
+    }
+    return <span className="px-2.5 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">离线</span>
+  }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">采集网关</h1>
+          <h1 className="text-2xl font-bold text-gray-900">网关列表</h1>
           <p className="text-gray-500 mt-1">管理所有采集网关的注册和状态</p>
         </div>
-        <div className="flex items-center space-x-4">
-          <div className="relative">
+        <button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="px-5 py-2.5 bg-primary-500 text-white rounded-lg hover:bg-indigo-600 font-medium flex items-center gap-2 shadow-sm transition-colors"
+        >
+          <i className="fas fa-plus"></i>新增网关
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
+        <div className="flex gap-5 items-end">
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">网关名称</label>
             <input
               type="text"
               placeholder="搜索网关名称..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent w-64"
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
             />
-            <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
           </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => handleStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          >
-            <option value="">全部状态</option>
-            <option value="ONLINE">在线</option>
-            <option value="OFFLINE">离线</option>
-            <option value="TOKEN_EXPIRED">Token 过期</option>
-            <option value="ERROR">错误</option>
-          </select>
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">IP地址</label>
+            <input
+              type="text"
+              placeholder="搜索IP地址..."
+              value={searchIp}
+              onChange={(e) => setSearchIp(e.target.value)}
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">NR版本</label>
+            <select
+              value={filterNrVersion}
+              onChange={(e) => setFilterNrVersion(e.target.value)}
+              className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">全部</option>
+              <option value="v3.1.2">v3.1.2</option>
+              <option value="v3.1.1">v3.1.1</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">状态</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">全部</option>
+              <option value="ONLINE">在线</option>
+              <option value="OFFLINE">离线</option>
+            </select>
+          </div>
           <button
             onClick={handleSearch}
-            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+            className="px-5 py-2.5 bg-primary-500 text-white rounded-lg hover:bg-indigo-600 text-sm font-medium transition-colors"
           >
             查询
           </button>
           <button
-            onClick={() => {
-              setSearchInput('')
-              setFilterName('')
-              setFilterStatus('')
-            }}
-            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+            onClick={handleReset}
+            className="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm transition-colors"
           >
             重置
-          </button>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            激活网关
-          </button>
-          <button
-            onClick={() => setIsRegistrationCodeModalOpen(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-          >
-            生成注册码
           </button>
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={gateways}
-        renderRow={renderRow}
-        loading={loading}
-        emptyText="暂无网关数据"
-      />
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">名称</th>
+              <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">IP地址</th>
+              <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">状态</th>
+              <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">NR版本</th>
+              <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">流数</th>
+              <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">最后心跳</th>
+              <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {loading ? (
+              <tr>
+                <td colSpan={7} className="px-5 py-12 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
+                </td>
+              </tr>
+            ) : gateways.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-5 py-12 text-center text-gray-500">
+                  暂无网关数据
+                </td>
+              </tr>
+            ) : (
+              gateways.map((gateway) => (
+                <tr key={gateway.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        gateway.status === 'ONLINE' ? 'bg-indigo-100' : 'bg-gray-100'
+                      }`}>
+                        <i className={`fas fa-microchip ${
+                          gateway.status === 'ONLINE' ? 'text-primary-500' : 'text-gray-400'
+                        }`}></i>
+                      </div>
+                      <span
+                        className="font-semibold text-gray-900 hover:text-primary-500 cursor-pointer transition-colors"
+                        onClick={() => navigate(`/gateways/${gateway.id}`)}
+                      >
+                        {gateway.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 text-gray-600 text-sm">{gateway.ip || '-'}</td>
+                  <td className="px-5 py-4">{getStatusBadge(gateway.status)}</td>
+                  <td className="px-5 py-4 text-gray-600 text-sm">{gateway.nodeRedVersion || '-'}</td>
+                  <td className="px-5 py-4 text-gray-600 text-sm">{gateway.flowCount ?? '-'}</td>
+                  <td className="px-5 py-4 text-gray-600 text-sm">{formatDate(gateway.lastHeartbeat)}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-4 text-sm relative">
+                      <button
+                        onClick={() => handleTestConnection(gateway)}
+                        disabled={testConnLoading === gateway.id}
+                        className="text-primary-500 hover:text-indigo-800 font-medium disabled:opacity-50 transition-colors"
+                      >
+                        {testConnLoading === gateway.id ? '测试中...' : '测试'}
+                      </button>
+                      <button
+                        onClick={() => handleGoToDevices(gateway)}
+                        className="text-gray-500 hover:text-primary-500 font-medium transition-colors"
+                      >
+                        设备
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setActiveDeleteId(activeDeleteId === gateway.id ? null : gateway.id)
+                        }}
+                        className="text-red-500 hover:text-red-700 font-medium transition-colors"
+                      >
+                        删除
+                      </button>
+                      {activeDeleteId === gateway.id && (
+                        <div
+                          className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-xl p-5 z-20 w-80"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-start gap-3 mb-4">
+                            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <i className="fas fa-trash-alt text-red-500"></i>
+                            </div>
+                            <div>
+                              <p className="text-gray-900 font-semibold">确定删除网关「{gateway.name}」吗？</p>
+                              <p className="text-gray-500 text-sm mt-1">已关联的设备实例将保留不变</p>
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-3">
+                            <button
+                              onClick={() => setActiveDeleteId(null)}
+                              className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
+                            >
+                              取消
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await useGatewayStore.getState().deleteGateway(gateway.id)
+                                  showToast('删除成功', 'success')
+                                  setActiveDeleteId(null)
+                                  fetchGateways()
+                                } catch (error: any) {
+                                  showToast(error.response?.data?.message || '删除失败', 'error')
+                                }
+                              }}
+                              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors"
+                            >
+                              确定
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
-      {/* 分页 */}
       {totalPages > 0 && (
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-gray-500">
-            共 {total} 条，每页 {pageSize} 条
+        <div className="flex justify-between items-center mt-5">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span>共</span>
+            <span className="font-medium text-gray-900">{total}</span>
+            <span>条记录</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => handlePageChange(1)}
-              disabled={page === 1}
-              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              首页
-            </button>
+          <div className="flex items-center gap-1">
             <button
               onClick={() => handlePageChange(page - 1)}
               disabled={page === 1}
-              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              上一页
+              <i className="fas fa-chevron-left text-xs"></i>
             </button>
-            <span className="px-4 py-1">
-              第 {page} / {totalPages} 页
-            </span>
+            <button className="px-3 py-1.5 bg-primary-500 text-white rounded-lg font-medium">
+              {page}
+            </button>
             <button
               onClick={() => handlePageChange(page + 1)}
               disabled={page === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              下一页
-            </button>
-            <button
-              onClick={() => handlePageChange(totalPages)}
-              disabled={page === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              末页
+              <i className="fas fa-chevron-right text-xs"></i>
             </button>
           </div>
         </div>
@@ -294,21 +338,10 @@ function GatewayList() {
 
       <GatewayCreateModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-      />
-
-      <GatewayEditModal
-        isOpen={isEditModalOpen}
         onClose={() => {
-          setIsEditModalOpen(false)
-          setSelectedGateway(null)
+          setIsCreateModalOpen(false)
+          fetchGateways()
         }}
-        gateway={selectedGateway}
-      />
-
-      <RegistrationCodeModal
-        isOpen={isRegistrationCodeModalOpen}
-        onClose={() => setIsRegistrationCodeModalOpen(false)}
       />
 
       <TestResultModal
@@ -316,11 +349,8 @@ function GatewayList() {
         onClose={() => {
           setIsTestResultModalOpen(false)
           setTestResults([])
-          setTestAllPassed(false)
         }}
         results={testResults}
-        allPassed={testAllPassed}
-        gatewayName={selectedGateway?.name}
       />
     </div>
   )

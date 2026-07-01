@@ -1,30 +1,39 @@
 import { useState, useEffect } from 'react'
 import { useSyncStore } from '../../stores/sync.store'
 import { useGatewayStore } from '../../stores/gateway.store'
-import StatusBadge from '../../components/StatusBadge'
 import DispatchLogDetailModal from './DispatchLogDetailModal'
-import SyncStatusPanel from './SyncStatusPanel'
 import type { SyncRecord } from '../../types'
 
 function SyncRecords() {
-  const [activeTab, setActiveTab] = useState<'dispatch' | 'status' | 'cache'>('dispatch')
   const [selectedRecord, setSelectedRecord] = useState<SyncRecord | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   
-  // Filter states
+  const [searchInstanceName, setSearchInstanceName] = useState('')
+  const [searchDeviceId, setSearchDeviceId] = useState('')
   const [gatewayIdFilter, setGatewayIdFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
-  const { records, loading, error, pagination, queryParams, fetchRecords, setPage, setPageSize, setFilters, resetFilters } = useSyncStore()
+  const { records, loading, pagination, fetchRecords, setPage, setPageSize, setFilters, resetFilters } = useSyncStore()
   const { gateways, fetchGateways } = useGatewayStore()
 
   useEffect(() => {
     fetchRecords()
     fetchGateways()
   }, [])
+
+  const formatDate = (date: Date | string | undefined) => {
+    if (!date) return '-'
+    return new Date(date).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
 
   const handleFilter = () => {
     setFilters({
@@ -37,12 +46,18 @@ function SyncRecords() {
   }
 
   const handleReset = () => {
+    setSearchInstanceName('')
+    setSearchDeviceId('')
     setGatewayIdFilter('')
     setStatusFilter('')
     setTypeFilter('')
     setStartDate('')
     setEndDate('')
     resetFilters()
+  }
+
+  const handleRefresh = () => {
+    fetchRecords()
   }
 
   const handleViewDetail = (record: SyncRecord) => {
@@ -55,288 +70,311 @@ function SyncRecords() {
     setSelectedRecord(null)
   }
 
-  const typeLabels: Record<string, string> = {
-    DEPLOY: '配置下发',
-    UNDEPLOY: '取消部署',
-    REDEPLOY: '重新部署'
+  const getTypeBadge = (type: string) => {
+    const typeMap: Record<string, { label: string; className: string }> = {
+      DEPLOY: { label: '采集流', className: 'bg-green-50 text-green-600' },
+      UNDEPLOY: { label: '取消部署', className: 'bg-gray-100 text-gray-600' },
+      REDEPLOY: { label: '重新部署', className: 'bg-blue-50 text-blue-600' },
+      INIT: { label: '系统初始化', className: 'bg-blue-50 text-blue-600' },
+      HEARTBEAT: { label: '系统初始化', className: 'bg-blue-50 text-blue-600' },
+      COLLECT: { label: '采集流', className: 'bg-green-50 text-green-600' },
+    }
+    const typeInfo = typeMap[type] || { label: type, className: 'bg-gray-100 text-gray-600' }
+    return (
+      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${typeInfo.className}`}>
+        {typeInfo.label}
+      </span>
+    )
   }
 
-  const statusOptions = [
-    { value: '', label: '全部' },
-    { value: 'SUCCESS', label: '成功' },
-    { value: 'FAILED', label: '失败' },
-    { value: 'PENDING', label: '待处理' }
-  ]
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; className: string }> = {
+      SUCCESS: { label: '成功', className: 'bg-green-50 text-green-600' },
+      FAILED: { label: '失败', className: 'bg-red-50 text-red-600' },
+      PENDING: { label: '待处理', className: 'bg-yellow-50 text-yellow-600' },
+      RUNNING: { label: '进行中', className: 'bg-blue-50 text-blue-600' },
+    }
+    const statusInfo = statusMap[status] || { label: status, className: 'bg-gray-100 text-gray-600' }
+    return (
+      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusInfo.className}`}>
+        {statusInfo.label}
+      </span>
+    )
+  }
 
-  const typeOptions = [
-    { value: '', label: '全部' },
-    { value: 'DEPLOY', label: '配置下发' },
-    { value: 'UNDEPLOY', label: '取消部署' },
-    { value: 'REDEPLOY', label: '重新部署' }
-  ]
-
-  const pageSizeOptions = [10, 20, 50]
+  const filteredRecords = records.filter((record) => {
+    const instanceMatch = searchInstanceName === '' || 
+      (record.deviceInstance?.name || '').toLowerCase().includes(searchInstanceName.toLowerCase())
+    const deviceIdMatch = searchDeviceId === '' || 
+      (record.deviceInstanceId || '').toLowerCase().includes(searchDeviceId.toLowerCase())
+    return instanceMatch && deviceIdMatch
+  })
 
   const totalPages = Math.ceil(pagination.total / pagination.pageSize)
-
-  const tabs = [
-    { key: 'dispatch', label: '下发日志' },
-    { key: 'status', label: '同步状态' },
-    { key: 'cache', label: '缓存补发' },
-  ]
+  const pageSizeOptions = [10, 20, 50]
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">同步记录</h1>
-          <p className="text-gray-500 mt-1">查看配置下发和数据同步的历史记录</p>
+          <h1 className="text-2xl font-bold text-gray-900">配置记录</h1>
+          <p className="text-gray-500 mt-1">查看所有配置下发历史和状态</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="border-b border-gray-200">
-          <nav className="flex" aria-label="Tabs">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                  activeTab === tab.key
-                    ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {tab.label}
-              </button>
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
+        <div className="grid grid-cols-6 gap-4 items-end">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">设备名称</label>
+            <input
+              type="text"
+              placeholder="搜索设备名称..."
+              value={searchInstanceName}
+              onChange={(e) => setSearchInstanceName(e.target.value)}
+              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">设备ID</label>
+            <input
+              type="text"
+              placeholder="搜索设备ID..."
+              value={searchDeviceId}
+              onChange={(e) => setSearchDeviceId(e.target.value)}
+              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">网关名称</label>
+            <select
+              value={gatewayIdFilter}
+              onChange={(e) => setGatewayIdFilter(e.target.value)}
+              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">全部网关</option>
+              {gateways.map((gateway) => (
+                <option key={gateway.id} value={gateway.id}>
+                  {gateway.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">下发类型</label>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">全部类型</option>
+              <option value="HEARTBEAT">系统初始化</option>
+              <option value="COLLECT">采集流</option>
+              <option value="DEPLOY">配置下发</option>
+              <option value="UNDEPLOY">取消部署</option>
+              <option value="REDEPLOY">重新部署</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">状态</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">全部状态</option>
+              <option value="SUCCESS">成功</option>
+              <option value="FAILED">失败</option>
+              <option value="PENDING">待处理</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">下发时间</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+            />
+          </div>
+        </div>
+        <div className="flex justify-between items-center mt-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">至</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleFilter}
+              className="px-5 py-2.5 bg-primary-500 text-white rounded-lg hover:bg-indigo-600 text-sm font-medium"
+            >
+              <i className="fas fa-search mr-1"></i>查询
+            </button>
+            <button
+              onClick={handleReset}
+              className="px-5 py-2.5 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm"
+            >
+              <i className="fas fa-redo mr-1"></i>重置
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <span>共</span>
+          <span className="font-medium text-gray-900">{pagination.total}</span>
+          <span>条记录</span>
+        </div>
+        <button
+          onClick={handleRefresh}
+          className="px-4 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-2"
+        >
+          <i className="fas fa-sync-alt"></i>刷新
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">设备名称</th>
+              <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">设备ID</th>
+              <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">网关名称</th>
+              <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">下发类型</th>
+              <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">状态</th>
+              <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">失败原因</th>
+              <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">下发时间</th>
+              <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">操作人</th>
+              <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase">操作</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {loading && (
+              <tr>
+                <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
+                  <i className="fas fa-spinner fa-spin mr-2"></i>加载中...
+                </td>
+              </tr>
+            )}
+            {!loading && filteredRecords.length === 0 && (
+              <tr>
+                <td colSpan={9} className="px-4 py-12 text-center text-gray-400">
+                  暂无数据
+                </td>
+              </tr>
+            )}
+            {!loading && filteredRecords.map((record) => (
+              <tr key={record.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-4">
+                  {record.deviceInstance?.name ? (
+                    <button
+                      onClick={() => handleViewDetail(record)}
+                      className="text-primary-500 font-semibold text-sm hover:underline"
+                    >
+                      {record.deviceInstance.name}
+                    </button>
+                  ) : (
+                    <span className="text-gray-400 text-sm">-</span>
+                  )}
+                </td>
+                <td className="px-4 py-4 text-gray-600 text-sm font-mono">
+                  {record.deviceInstanceId || <span className="text-gray-400">-</span>}
+                </td>
+                <td className="px-4 py-4">
+                  <button
+                    onClick={() => {}}
+                    className="text-primary-500 text-sm hover:underline"
+                  >
+                    {record.gateway?.name || record.gatewayId}
+                  </button>
+                </td>
+                <td className="px-4 py-4">
+                  {getTypeBadge(record.type)}
+                </td>
+                <td className="px-4 py-4">
+                  {getStatusBadge(record.status)}
+                </td>
+                <td className="px-4 py-4">
+                  {record.status === 'FAILED' ? (
+                    <span className="text-red-500 text-sm truncate max-w-[150px] block" title={record.message}>
+                      {record.message || '-'}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-sm">-</span>
+                  )}
+                </td>
+                <td className="px-4 py-4 text-gray-600 text-sm">
+                  {formatDate(record.createdAt)}
+                </td>
+                <td className="px-4 py-4 text-gray-600 text-sm">
+                  {record.operator || '系统'}
+                </td>
+                <td className="px-4 py-4">
+                  <button
+                    onClick={() => handleViewDetail(record)}
+                    className="text-primary-500 hover:text-indigo-700 text-sm font-medium"
+                  >
+                    详情
+                  </button>
+                </td>
+              </tr>
             ))}
-          </nav>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex justify-between items-center mt-5">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <span>每页</span>
+          <select
+            value={pagination.pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            className="px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          >
+            {pageSizeOptions.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+          <span>条</span>
         </div>
-
-        <div className="p-6">
-          {activeTab === 'dispatch' && (
-            <>
-              {/* Filter Section */}
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                  {/* Gateway Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">网关</label>
-                    <select
-                      value={gatewayIdFilter}
-                      onChange={(e) => setGatewayIdFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-                    >
-                      <option value="">全部网关</option>
-                      {gateways.map((gateway) => (
-                        <option key={gateway.id} value={gateway.id}>
-                          {gateway.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Status Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">状态</label>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-                    >
-                      {statusOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Type Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">操作类型</label>
-                    <select
-                      value={typeFilter}
-                      onChange={(e) => setTypeFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-                    >
-                      {typeOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Start Date Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-                    />
-                  </div>
-
-                  {/* End Date Filter */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">结束日期</label>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    onClick={handleReset}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    重置
-                  </button>
-                  <button
-                    onClick={handleFilter}
-                    className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
-                  >
-                    查询
-                  </button>
-                </div>
-              </div>
-
-              {/* Error Message */}
-              {error && (
-                <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg">
-                  {error}
-                </div>
-              )}
-
-              {/* Loading State */}
-              {loading ? (
-                <div className="text-center py-12 text-gray-500">
-                  加载中...
-                </div>
-              ) : (
-                <>
-                  {/* Table */}
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">网关</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">设备</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">消息</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {records.length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                              暂无数据
-                            </td>
-                          </tr>
-                        ) : (
-                          records.map((record) => (
-                            <tr key={record.id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                  {typeLabels[record.type] || record.type}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {record.gateway?.name || record.gatewayId}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {record.deviceInstance?.name || record.deviceInstanceId || '-'}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <StatusBadge status={record.status} />
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {record.createdAt}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {record.message || '-'}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                <button
-                                  onClick={() => handleViewDetail(record)}
-                                  className="text-primary-600 hover:text-primary-800 font-medium"
-                                >
-                                  查看详情
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Pagination */}
-                  <div className="mt-4 flex items-center justify-between">
-                    <div className="text-sm text-gray-500">
-                      共 {pagination.total} 条记录，第 {pagination.page} / {totalPages || 1} 页
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">每页</span>
-                        <select
-                          value={pagination.pageSize}
-                          onChange={(e) => setPageSize(Number(e.target.value))}
-                          className="px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        >
-                          {pageSizeOptions.map((size) => (
-                            <option key={size} value={size}>
-                              {size}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="text-sm text-gray-500">条</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setPage(pagination.page - 1)}
-                          disabled={pagination.page <= 1}
-                          className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-                        >
-                          上一页
-                        </button>
-                        <button
-                          onClick={() => setPage(pagination.page + 1)}
-                          disabled={pagination.page >= totalPages}
-                          className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-                        >
-                          下一页
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
-          {activeTab === 'status' && (
-            <SyncStatusPanel />
-          )}
-
-          {activeTab === 'cache' && (
-            <div className="text-center py-12 text-gray-500">
-              缓存补发页面开发中...
-            </div>
-          )}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setPage(pagination.page - 1)}
+            disabled={pagination.page <= 1}
+            className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm disabled:text-gray-400 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
+            <i className="fas fa-chevron-left text-xs"></i>
+          </button>
+          {Array.from({ length: totalPages || 1 }, (_, i) => i + 1).map(p => (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              className={`px-3 py-1.5 rounded-lg text-sm ${
+                pagination.page === p
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            onClick={() => setPage(pagination.page + 1)}
+            disabled={pagination.page >= totalPages}
+            className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm disabled:text-gray-400 disabled:cursor-not-allowed hover:bg-gray-50"
+          >
+            <i className="fas fa-chevron-right text-xs"></i>
+          </button>
         </div>
       </div>
 
-      {/* Detail Modal */}
       {selectedRecord && (
         <DispatchLogDetailModal
           syncRecord={selectedRecord}

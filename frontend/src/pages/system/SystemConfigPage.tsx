@@ -3,7 +3,6 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { getPlatformConfig, updatePlatformConfig } from '../../api/platform-config.api'
-import type { PlatformConfig } from '../../api/platform-config.api'
 import { showToast } from '../../utils/toast'
 
 const schema = z.object({
@@ -14,11 +13,18 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-function SystemConfigPage() {
-  const [config, setConfig] = useState<PlatformConfig | null>(null)
-  const [loading, setLoading] = useState(true)
+const menuItems = [
+  { key: 'cache', label: '断网缓存', icon: 'fa-cog' },
+  { key: 'security', label: '安全配置', icon: 'fa-shield-alt' },
+  { key: 'storage', label: '数据存储', icon: 'fa-database' },
+  { key: 'notification', label: '通知配置', icon: 'fa-bell' },
+]
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
+function SystemConfigPage() {
+  const [loading, setLoading] = useState(true)
+  const [activeMenu, setActiveMenu] = useState('cache')
+
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, watch } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       cacheEnabled: false,
@@ -26,6 +32,8 @@ function SystemConfigPage() {
       cacheReplayRate: 100
     }
   })
+
+  const cacheEnabled = watch('cacheEnabled')
 
   useEffect(() => {
     loadConfig()
@@ -35,7 +43,6 @@ function SystemConfigPage() {
     setLoading(true)
     try {
       const data = await getPlatformConfig()
-      setConfig(data)
       reset({
         cacheEnabled: data.cacheEnabled,
         cacheRetentionDays: data.cacheRetentionDays,
@@ -50,8 +57,7 @@ function SystemConfigPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      const updated = await updatePlatformConfig(data)
-      setConfig(updated)
+      await updatePlatformConfig(data)
       showToast('配置保存成功', 'success')
     } catch (error: any) {
       showToast(error.response?.data?.message || '保存失败', 'error')
@@ -61,88 +67,139 @@ function SystemConfigPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500"></div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">系统配置</h1>
-        <p className="text-gray-500 mt-1">管理平台级别的系统配置项</p>
-      </div>
+    <div>
+      <div className="flex gap-6">
+        <div className="w-56 flex-shrink-0">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">系统配置</div>
+            <nav className="space-y-1">
+              {menuItems.map(item => (
+                <button
+                  key={item.key}
+                  onClick={() => setActiveMenu(item.key)}
+                  className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    activeMenu === item.key
+                      ? 'text-primary-500 bg-indigo-50'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <i className={`fas ${item.icon} w-5`}></i>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-6">断网缓存配置</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          平台级默认配置，网关未单独配置时使用此配置。网关级配置优先级高于平台级。
-        </p>
+        <div className="flex-1">
+          {activeMenu === 'cache' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold text-gray-800 mb-2">断网缓存配置</h2>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex">
+                    <i className="fas fa-info-circle text-blue-500 mt-0.5 mr-2"></i>
+                    <div className="text-sm text-blue-700">
+                      <p>• 此配置为平台级默认值，所有网关默认使用此配置</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-lg">
-          <div className="flex items-center justify-between py-3 border-b border-gray-100">
-            <div>
-              <p className="font-medium text-gray-900">断网缓存</p>
-              <p className="text-sm text-gray-500">启用后网关在断网时会缓存数据，恢复后自动补发</p>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div className="flex items-center justify-between py-4 border-b border-gray-200">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">缓存开关</label>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm text-gray-600">
+                      {cacheEnabled ? '已开启' : '已关闭'}
+                    </span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        {...register('cacheEnabled')}
+                        className="sr-only peer"
+                      />
+                      <div className="w-12 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-md peer-checked:bg-primary-500"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {cacheEnabled && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">保存期限</label>
+                      <select
+                        {...register('cacheRetentionDays', { valueAsNumber: true })}
+                        className="w-64 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50"
+                      >
+                        <option value={7}>7 天</option>
+                        <option value={15}>15 天</option>
+                        <option value={30}>30 天</option>
+                        <option value={60}>60 天</option>
+                        <option value={90}>90 天</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">超过保留期限的缓存数据自动清理</p>
+                      {errors.cacheRetentionDays && (
+                        <p className="mt-1 text-sm text-red-500">{errors.cacheRetentionDays.message}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">补发速率</label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          {...register('cacheReplayRate', { valueAsNumber: true })}
+                          type="number"
+                          min={1}
+                          max={500}
+                          className={`w-32 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-gray-50 ${
+                            errors.cacheReplayRate ? 'border-red-500' : 'border-gray-200'
+                          }`}
+                        />
+                        <span className="text-sm text-gray-600">条/秒</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">网络恢复后按此速率补发缓存数据（范围：1-500）</p>
+                      {errors.cacheReplayRate && (
+                        <p className="mt-1 text-sm text-red-500">{errors.cacheReplayRate.message}</p>
+                      )}
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-200">
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="bg-primary-500 text-white px-6 py-2 rounded-lg hover:bg-indigo-600 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <i className="fas fa-save mr-2"></i>
+                        {isSubmitting ? '保存中...' : '保存'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </form>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                {...register('cacheEnabled')}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-            </label>
-          </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              缓存保存期限 <span className="text-gray-400">(天)</span>
-            </label>
-            <input
-              {...register('cacheRetentionDays', { valueAsNumber: true })}
-              type="number"
-              min={1}
-              max={365}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                errors.cacheRetentionDays ? 'border-red-500' : 'border-gray-300'
-              }`}
-            />
-            {errors.cacheRetentionDays && (
-              <p className="mt-1 text-sm text-red-500">{errors.cacheRetentionDays.message}</p>
-            )}
-            <p className="mt-1 text-xs text-gray-400">范围：1 - 365 天，默认 15 天</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              缓存补发速率 <span className="text-gray-400">(条/秒)</span>
-            </label>
-            <input
-              {...register('cacheReplayRate', { valueAsNumber: true })}
-              type="number"
-              min={1}
-              max={500}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
-                errors.cacheReplayRate ? 'border-red-500' : 'border-gray-300'
-              }`}
-            />
-            {errors.cacheReplayRate && (
-              <p className="mt-1 text-sm text-red-500">{errors.cacheReplayRate.message}</p>
-            )}
-            <p className="mt-1 text-xs text-gray-400">范围：1 - 500 条/秒，默认 100 条/秒</p>
-          </div>
-
-          <div className="flex justify-end pt-4 border-t border-gray-100">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSubmitting ? '保存中...' : '保存配置'}
-            </button>
-          </div>
-        </form>
+          {activeMenu !== 'cache' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i className="fas fa-tools text-gray-400 text-2xl"></i>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                {menuItems.find(m => m.key === activeMenu)?.label}
+              </h3>
+              <p className="text-gray-500 text-sm">功能开发中，敬请期待</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
