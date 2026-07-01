@@ -8,21 +8,42 @@ import GatewayCreateModal from './GatewayCreateModal'
 import GatewayEditModal from './GatewayEditModal'
 import RegistrationCodeModal from './RegistrationCodeModal'
 import DeleteConfirmBubble from './DeleteConfirmBubble'
+import TestResultModal from './TestResultModal'
 import * as gatewayApi from '../../api/gateway.api'
 import type { Gateway } from '../../types'
+import type { TestResultItem } from '../../api/gateway.api'
+import { showToast } from '../../utils/toast'
 
 function GatewayList() {
   const navigate = useNavigate()
-  const { gateways, loading, fetchGateways, updateGatewayStatus } = useGatewayStore()
-  const [searchTerm, setSearchTerm] = useState('')
+  const {
+    gateways,
+    loading,
+    fetchGateways,
+    updateGatewayStatus,
+    page,
+    pageSize,
+    total,
+    totalPages,
+    filterName,
+    filterStatus,
+    setPage,
+    setFilterName,
+    setFilterStatus
+  } = useGatewayStore()
+  const [searchInput, setSearchInput] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isRegistrationCodeModalOpen, setIsRegistrationCodeModalOpen] = useState(false)
+  const [isTestResultModalOpen, setIsTestResultModalOpen] = useState(false)
   const [selectedGateway, setSelectedGateway] = useState<Gateway | null>(null)
+  const [testResults, setTestResults] = useState<TestResultItem[]>([])
+  const [testAllPassed, setTestAllPassed] = useState(false)
+  const [testConnLoading, setTestConnLoading] = useState<string | null>(null)
 
   useEffect(() => {
     fetchGateways()
-  }, [fetchGateways])
+  }, [page, filterName, filterStatus])
 
   useGatewaySSE((event) => {
     updateGatewayStatus(event.gatewayId, event.status, {
@@ -33,11 +54,19 @@ function GatewayList() {
     } as Partial<Gateway>)
   })
 
-  const filteredGateways = gateways.filter(
-    (gateway) =>
-      gateway.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      gateway.address.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const handleSearch = () => {
+    setFilterName(searchInput)
+  }
+
+  const handleStatusFilter = (status: string) => {
+    setFilterStatus(status)
+  }
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage)
+    }
+  }
 
   const columns = [
     { key: 'name', label: '名称' },
@@ -51,9 +80,6 @@ function GatewayList() {
     { key: 'actions', label: '操作' },
   ]
 
-  const [testConnLoading, setTestConnLoading] = useState<string | null>(null)
-  const [testConnResult, setTestConnResult] = useState<{ id: string; success: boolean; message: string } | null>(null)
-
   const handleEditClick = (gateway: Gateway) => {
     setSelectedGateway(gateway)
     setIsEditModalOpen(true)
@@ -61,30 +87,23 @@ function GatewayList() {
 
   const handleTestConnection = async (gateway: Gateway) => {
     setTestConnLoading(gateway.id)
-    setTestConnResult(null)
     try {
       const result = await gatewayApi.testConnection({
         gatewayId: gateway.id,
+        port: gateway.port,
       })
-      let message = ''
-      if (result.tokenExpired) {
-        message = 'Token 已过期'
-      } else if (result.success) {
-        message = '连接成功，状态已恢复'
+      setTestResults(result.results)
+      setTestAllPassed(result.allPassed)
+      setSelectedGateway(gateway)
+      setIsTestResultModalOpen(true)
+      if (result.allPassed) {
+        showToast('连接测试全部通过', 'success')
       } else {
-        message = '连接失败'
+        showToast('部分测试项未通过', 'error')
       }
-      setTestConnResult({
-        id: gateway.id,
-        success: result.success,
-        message
-      })
-    } catch {
-      setTestConnResult({
-        id: gateway.id,
-        success: false,
-        message: '连接超时'
-      })
+      fetchGateways()
+    } catch (error: any) {
+      showToast(error.response?.data?.message || '测试连接失败', 'error')
     } finally {
       setTestConnLoading(null)
     }
@@ -97,7 +116,10 @@ function GatewayList() {
   const renderRow = (gateway: typeof gateways[0]) => (
     <tr key={gateway.id} className="hover:bg-gray-50">
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="text-sm font-medium text-gray-900">{gateway.name}</div>
+        <div className="text-sm font-medium text-gray-900 cursor-pointer hover:text-primary transition-colors"
+          onClick={() => navigate(`/gateways/${gateway.id}`)}>
+          {gateway.name}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="text-sm text-gray-500">{gateway.address}</div>
@@ -153,11 +175,6 @@ function GatewayList() {
           </button>
           <DeleteConfirmBubble gateway={gateway} onDelete={fetchGateways} />
         </div>
-        {testConnResult?.id === gateway.id && (
-          <div className={`mt-1 text-xs ${testConnResult.success ? 'text-green-600' : 'text-red-600'}`}>
-            {testConnResult.message}
-          </div>
-        )}
       </td>
     </tr>
   )
@@ -173,20 +190,48 @@ function GatewayList() {
           <div className="relative">
             <input
               type="text"
-              placeholder="搜索网关..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="搜索网关名称..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent w-64"
             />
             <svg className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
+          <select
+            value={filterStatus}
+            onChange={(e) => handleStatusFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          >
+            <option value="">全部状态</option>
+            <option value="ONLINE">在线</option>
+            <option value="OFFLINE">离线</option>
+            <option value="TOKEN_EXPIRED">Token 过期</option>
+            <option value="ERROR">错误</option>
+          </select>
+          <button
+            onClick={handleSearch}
+            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            查询
+          </button>
+          <button
+            onClick={() => {
+              setSearchInput('')
+              setFilterName('')
+              setFilterStatus('')
+            }}
+            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            重置
+          </button>
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
           >
-            新建网关
+            激活网关
           </button>
           <button
             onClick={() => setIsRegistrationCodeModalOpen(true)}
@@ -199,10 +244,53 @@ function GatewayList() {
 
       <DataTable
         columns={columns}
-        data={filteredGateways}
+        data={gateways}
         renderRow={renderRow}
         loading={loading}
+        emptyText="暂无网关数据"
       />
+
+      {/* 分页 */}
+      {totalPages > 0 && (
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-gray-500">
+            共 {total} 条，每页 {pageSize} 条
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => handlePageChange(1)}
+              disabled={page === 1}
+              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              首页
+            </button>
+            <button
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page === 1}
+              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              上一页
+            </button>
+            <span className="px-4 py-1">
+              第 {page} / {totalPages} 页
+            </span>
+            <button
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page === totalPages}
+              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              下一页
+            </button>
+            <button
+              onClick={() => handlePageChange(totalPages)}
+              disabled={page === totalPages}
+              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              末页
+            </button>
+          </div>
+        </div>
+      )}
 
       <GatewayCreateModal
         isOpen={isCreateModalOpen}
@@ -221,6 +309,18 @@ function GatewayList() {
       <RegistrationCodeModal
         isOpen={isRegistrationCodeModalOpen}
         onClose={() => setIsRegistrationCodeModalOpen(false)}
+      />
+
+      <TestResultModal
+        isOpen={isTestResultModalOpen}
+        onClose={() => {
+          setIsTestResultModalOpen(false)
+          setTestResults([])
+          setTestAllPassed(false)
+        }}
+        results={testResults}
+        allPassed={testAllPassed}
+        gatewayName={selectedGateway?.name}
       />
     </div>
   )

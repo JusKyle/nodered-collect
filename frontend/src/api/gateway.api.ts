@@ -1,8 +1,41 @@
 import api from './axios'
 import type { Gateway, RegistrationCode } from '../types'
 
-export const getAllGateways = async (): Promise<Gateway[]> => {
-  const response = await api.get('/gateways')
+export interface TestResultItem {
+  name: string
+  passed: boolean
+  message: string
+}
+
+export interface TestConnectionResult {
+  results: TestResultItem[]
+  allPassed: boolean
+}
+
+export interface GatewayListResponse {
+  list: Gateway[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface GatewayListQuery {
+  name?: string
+  address?: string
+  status?: 'ONLINE' | 'OFFLINE' | 'TOKEN_EXPIRED' | 'ERROR'
+  page?: number
+  pageSize?: number
+}
+
+export const getAllGateways = async (query?: GatewayListQuery): Promise<GatewayListResponse> => {
+  const params = new URLSearchParams()
+  if (query?.name) params.append('name', query.name)
+  if (query?.address) params.append('address', query.address)
+  if (query?.status) params.append('status', query.status)
+  if (query?.page) params.append('page', String(query.page))
+  if (query?.pageSize) params.append('pageSize', String(query.pageSize))
+  const response = await api.get(`/gateways?${params.toString()}`)
   return response.data
 }
 
@@ -15,7 +48,6 @@ export const createGateway = async (data: {
   name: string
   address: string
   port?: number
-  adminToken: string
 }): Promise<Gateway> => {
   const response = await api.post('/gateways', data)
   return response.data
@@ -36,10 +68,10 @@ export const deleteGateway = async (id: string): Promise<Gateway> => {
 
 export const testConnection = async (data: {
   gatewayId?: string
-  address: string
+  address?: string
   port?: number
-  adminToken: string
-}): Promise<{ success: boolean; tokenExpired: boolean; message: string }> => {
+  adminToken?: string
+}): Promise<TestConnectionResult> => {
   const response = await api.post('/gateways/test-connection', data)
   return response.data
 }

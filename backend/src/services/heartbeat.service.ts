@@ -14,6 +14,11 @@ export const handleHeartbeat = async (gatewayId: string, rawMessage?: string) =>
   let nodeRedVersion: string | null = null
   let ip: string | null = null
   let flowCount: number | null = null
+  let hasPerfData = false
+  let cpuUsage: number | undefined
+  let memoryUsage: number | undefined
+  let diskUsage: number | undefined
+  let diskFreeBytes: bigint | undefined
 
   if (rawMessage && rawMessage.trim()) {
     try {
@@ -21,6 +26,16 @@ export const handleHeartbeat = async (gatewayId: string, rawMessage?: string) =>
       nodeRedVersion = payload.nodeRedVersion || null
       ip = payload.ip || null
       flowCount = typeof payload.flowCount === 'number' ? payload.flowCount : null
+
+      if (typeof payload.cpuUsage === 'number' || typeof payload.memoryUsage === 'number') {
+        hasPerfData = true
+        cpuUsage = payload.cpuUsage
+        memoryUsage = payload.memoryUsage
+        diskUsage = payload.diskUsage
+        if (typeof payload.diskFreeBytes === 'number') {
+          diskFreeBytes = BigInt(payload.diskFreeBytes)
+        }
+      }
     } catch (err) {
     }
   }
@@ -58,12 +73,25 @@ export const handleHeartbeat = async (gatewayId: string, rawMessage?: string) =>
     data: updateData
   })
 
+  if (hasPerfData) {
+    await prisma.gatewayPerformance.create({
+      data: {
+        gatewayId,
+        cpuUsage,
+        memoryUsage,
+        diskUsage,
+        diskFreeBytes,
+        timestamp: new Date()
+      }
+    })
+  }
+
   sseService.broadcast({
     type: 'gateway_status_change',
     data: {
       gatewayId: updated.id,
       status: updated.status,
-      lastHeartbeat: updated.lastHeartbeat,
+      lastHeartbeat: updated.lastHeartbeat ?? undefined,
       ip: updated.ip || undefined,
       flowCount: updated.flowCount ?? undefined,
       nodeRedVersion: updated.nodeRedVersion || undefined
@@ -87,7 +115,7 @@ export const markGatewayTokenExpired = async (gatewayId: string) => {
     data: {
       gatewayId: updated.id,
       status: updated.status,
-      lastHeartbeat: updated.lastHeartbeat
+      lastHeartbeat: updated.lastHeartbeat ?? undefined
     }
   })
 }
@@ -115,7 +143,7 @@ export const checkGatewayStatus = async () => {
           data: {
             gatewayId: updated.id,
             status: updated.status,
-            lastHeartbeat: updated.lastHeartbeat
+            lastHeartbeat: updated.lastHeartbeat ?? undefined
           }
         })
       }
@@ -132,7 +160,7 @@ export const checkGatewayStatus = async () => {
             data: {
               gatewayId: updated.id,
               status: updated.status,
-              lastHeartbeat: updated.lastHeartbeat
+              lastHeartbeat: updated.lastHeartbeat ?? undefined
             }
           })
         }
@@ -146,7 +174,7 @@ export const checkGatewayStatus = async () => {
           data: {
             gatewayId: updated.id,
             status: updated.status,
-            lastHeartbeat: updated.lastHeartbeat
+            lastHeartbeat: updated.lastHeartbeat ?? undefined
           }
         })
       }

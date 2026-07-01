@@ -1,29 +1,64 @@
 import { create } from 'zustand'
 import type { Gateway } from '../types'
 import * as gatewayApi from '../api/gateway.api'
+import type { TestConnectionResult, GatewayListQuery } from '../api/gateway.api'
 
 interface GatewayStore {
   gateways: Gateway[]
   loading: boolean
   error: string | null
-  fetchGateways: () => Promise<void>
-  createGateway: (data: { name: string; address: string; port?: number; adminToken: string }) => Promise<void>
+  // 分页
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+  // 筛选
+  filterName: string
+  filterStatus: string
+  fetchGateways: (query?: GatewayListQuery) => Promise<void>
+  createGateway: (data: { name: string; address: string; port?: number }) => Promise<Gateway>
   updateGateway: (id: string, data: Partial<Gateway>) => Promise<void>
   updateGatewayStatus: (id: string, status: string, extra?: Partial<Gateway>) => void
   deleteGateway: (id: string) => Promise<void>
-  testConnection: (data: { gatewayId?: string; address: string; port?: number; adminToken: string }) => Promise<{ success: boolean; tokenExpired: boolean; message: string }>
+  testConnection: (data: { gatewayId?: string; address?: string; port?: number; adminToken?: string }) => Promise<TestConnectionResult>
+  setPage: (page: number) => void
+  setFilterName: (name: string) => void
+  setFilterStatus: (status: string) => void
 }
 
-export const useGatewayStore = create<GatewayStore>((set) => ({
+export const useGatewayStore = create<GatewayStore>((set, get) => ({
   gateways: [],
   loading: false,
   error: null,
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  totalPages: 0,
+  filterName: '',
+  filterStatus: '',
 
-  fetchGateways: async () => {
+  fetchGateways: async (query?: GatewayListQuery) => {
     set({ loading: true, error: null })
     try {
-      const gateways = await gatewayApi.getAllGateways()
-      set({ gateways, loading: false })
+      const state = get()
+      const params: GatewayListQuery = {
+        page: query?.page ?? state.page,
+        pageSize: query?.pageSize ?? state.pageSize,
+        name: query?.name ?? state.filterName,
+        status: query?.status as GatewayListQuery['status'] ?? undefined
+      }
+      // 清除空参数
+      if (!params.name) delete params.name
+      if (!params.status) delete params.status
+      const result = await gatewayApi.getAllGateways(params)
+      set({
+        gateways: result.list,
+        total: result.total,
+        totalPages: result.totalPages,
+        page: result.page,
+        pageSize: result.pageSize,
+        loading: false
+      })
     } catch (error: any) {
       set({ error: error.message, loading: false })
     }
@@ -81,5 +116,11 @@ export const useGatewayStore = create<GatewayStore>((set) => ({
 
   testConnection: async (data) => {
     return await gatewayApi.testConnection(data)
-  }
+  },
+
+  setPage: (page) => set({ page }),
+
+  setFilterName: (filterName) => set({ filterName, page: 1 }),
+
+  setFilterStatus: (filterStatus) => set({ filterStatus, page: 1 })
 }))

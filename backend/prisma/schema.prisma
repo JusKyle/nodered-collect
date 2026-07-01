@@ -20,13 +20,18 @@ model Gateway {
   nodeRedVersion    String?
   ip                String?
   flowCount         Int?
-  cacheEnabled      Boolean        @default(true)  // 网关级缓存开关
+  cacheEnabled      Boolean?       // 网关级缓存开关（null=使用平台默认）
+  cacheRetentionDays Int?          // 缓存保存期限（天）
+  cacheReplayRate   Int?           // 缓存补发速率（条/秒）
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
   deviceInstances DeviceInstance[]
   syncRecords     SyncRecord[]
   dataPoints      DeviceDataPoint[]
+  registrationCodes RegistrationCode[]
+  performances    GatewayPerformance[]
+  cacheStatus     GatewayCacheStatus?
 
   @@unique([address, port])
 }
@@ -155,11 +160,74 @@ model DeviceDataPoint {
   @@index([timestamp(sort: Desc)])
 }
 
+enum CodeStatus {
+  UNUSED
+  USED
+  EXPIRED
+  REVOKED
+}
+
 model RegistrationCode {
-  id          String    @id @default(cuid())
-  code        String    @unique
-  gatewayName String
+  id          String     @id @default(cuid())
+  code        String     @unique
+  batchId     String?
+  status      CodeStatus @default(UNUSED)
   expiresAt   DateTime
-  used        Boolean   @default(false)
-  createdAt   DateTime  @default(now())
+  gatewayId   String?
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime   @default(now())
+
+  gateway Gateway? @relation(fields: [gatewayId], references: [id])
+}
+
+model PlatformConfig {
+  id                String   @id @default("singleton")
+  cacheEnabled      Boolean  @default(false)
+  cacheRetentionDays Int     @default(15)
+  cacheReplayRate   Int      @default(100)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model GatewayPerformance {
+  id           String   @id @default(cuid())
+  gatewayId    String
+  cpuUsage     Float?
+  memoryUsage  Float?
+  diskUsage    Float?
+  diskFreeBytes BigInt?
+  timestamp    DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  gateway Gateway @relation(fields: [gatewayId], references: [id], onDelete: Cascade)
+
+  @@index([gatewayId, timestamp(sort: Desc)])
+}
+
+model GatewayCacheStatus {
+  id               String        @id @default(cuid())
+  gatewayId        String        @unique
+  cachingEnabled   Boolean       @default(false)
+  isCaching        Boolean       @default(false)
+  cacheCount       Int           @default(0)
+  cacheSizeBytes   BigInt        @default(0)
+  replayCount      Int           @default(0)
+  replayRate       Int           @default(100)
+  replayStatus     ReplayStatus  @default(IDLE)
+  firstCachedAt    DateTime?
+  latestCachedAt   DateTime?
+  replayStartedAt  DateTime?
+  replayFinishedAt DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  gateway Gateway @relation(fields: [gatewayId], references: [id], onDelete: Cascade)
+}
+
+enum ReplayStatus {
+  IDLE
+  REPLAYING
+  PAUSED
+  COMPLETED
 }
