@@ -1,15 +1,42 @@
 import { DeviceModel, ModelVersion, ModelStatus } from '@prisma/client'
 import * as repository from './device-model.repository'
 import { CreateDeviceModelDto, UpdateDeviceModelDto } from './device-model.dto'
+import { validateProtocolConfig } from './protocol-config'
 
-export const createDeviceModel = async (dto: CreateDeviceModelDto): Promise<DeviceModel> => {
+interface CreateDeviceModelInput extends Omit<CreateDeviceModelDto, 'points'> {
+  points?: CreateDeviceModelDto['points']
+}
+
+export interface DeviceModelListQuery {
+  name?: string
+  protocol?: string
+  page?: number
+  pageSize?: number
+}
+
+export const createDeviceModel = async (dto: CreateDeviceModelInput): Promise<DeviceModel> => {
+  const modelDI = dto.modelDI || dto.model!
+  const existingModel = await repository.findDeviceModelByModelDI(modelDI)
+  if (existingModel) {
+    throw { code: 'MODEL_DI_EXISTS', message: '模型ID已存在' }
+  }
+
   return repository.createDeviceModel({
     name: dto.name,
-    vendor: dto.vendor,
-    model: dto.model,
+    vendor: dto.vendor || '',
+    model: modelDI,
     protocol: dto.protocol,
     description: dto.description,
-    points: dto.points
+    points: dto.points || []
+  })
+}
+
+export const getDeviceModels = async (query: DeviceModelListQuery) => {
+  return repository.getDeviceModels({
+    name: query.name,
+    protocol: query.protocol,
+    page: query.page || 1,
+    pageSize: query.pageSize || 20
   })
 }
 
@@ -17,8 +44,37 @@ export const getAllDeviceModels = async (): Promise<DeviceModel[]> => {
   return repository.getAllDeviceModels()
 }
 
-export const getDeviceModelById = async (id: string): Promise<DeviceModel | null> => {
-  return repository.getDeviceModelById(id)
+export const getDeviceModelById = async (id: string) => {
+  const model = await repository.getDeviceModelDetailById(id)
+  if (!model) return null
+
+  return {
+    ...model,
+    points: [...model.points].sort((a, b) => a.sort - b.sort)
+  }
+}
+
+export const updateDeviceModelBasic = async (
+  id: string,
+  dto: { name?: string; modelDI?: string; description?: string; protocol?: string }
+): Promise<DeviceModel> => {
+  const currentModel = await repository.getDeviceModelById(id)
+  if (!currentModel) {
+    throw { code: 'DEVICE_MODEL_NOT_FOUND', message: 'Device model not found' }
+  }
+
+  if (dto.modelDI && dto.modelDI !== currentModel.model) {
+    const existingModel = await repository.findDeviceModelByModelDI(dto.modelDI)
+    if (existingModel && existingModel.id !== id) {
+      throw { code: 'MODEL_DI_EXISTS', message: '模型ID已存在' }
+    }
+  }
+
+  return repository.updateDeviceModelBasic(id, {
+    ...(dto.name !== undefined ? { name: dto.name } : {}),
+    ...(dto.modelDI !== undefined ? { model: dto.modelDI } : {}),
+    ...(dto.description !== undefined ? { description: dto.description } : {})
+  })
 }
 
 export const updateDeviceModel = async (
@@ -38,21 +94,96 @@ export const updateDeviceModel = async (
     points: currentModel.points as object[]
   })
 
-  // 3. 递增版本号 (v1.0 → v1.1)
-  const currentVersion = currentModel.version
-  const versionMatch = currentVersion.match(/v(\d+)\.(\d+)/)
-  let newVersion = 'v1.1'
-  if (versionMatch) {
-    const major = parseInt(versionMatch[1], 10)
-    const minor = parseInt(versionMatch[2], 10)
-    newVersion = `v${major}.${minor + 1}`
-  }
+  // 3. 递增整数版本号
+  const newVersion = currentModel.version + 1
 
   // 4. 更新模型数据
   return repository.updateDeviceModel(id, {
     ...dto,
     version: newVersion
   })
+}
+
+export interface PointInput {
+  name?: string
+  tag?: string
+  dataType?: string
+  address?: string
+  unit?: string
+  description?: string
+  config?: object
+}
+
+export const getModelPoints = async (
+  modelId: string,
+  query: { name?: string; page?: number; pageSize?: number }
+) => {
+  const model = await repository.getDeviceModelById(modelId)
+  if (!model) {
+    throw { code: 'DEVICE_MODEL_NOT_FOUND', message: 'Device model not found' }
+  }
+
+  return repository.getModelPoints(modelId, {
+    name: query.name,
+    page: query.page || 1,
+    pageSize: query.pageSize || 20
+  })
+}
+
+export const createPoint = async (modelId: string, dto: PointInput) => {
+  const model = await repository.getDeviceModelById(modelId)
+  if (!model) {
+    throw { code: 'DEVICE_MODEL_NOT_FOUND', message: 'Device model not found' }
+  }
+  if (!dto.name || !dto.tag || !dto.dataType) {
+    throw { code: 'INVALID_POINT_PAYLOAD', message: 'name, tag and dataType are required' }
+  }
+  const existingPoint = await repository.findPointByTag(modelId, dto.tag)
+  if (existingPoint) {
+    throw { code: 'POINT_TAG_EXISTS', message: '点位标识已存在' }
+  }
+
+  const configErrors = validateProtocolConfig(model.protocol, dto.config || {})
+  if (configErrors.length > 0) {
+    throw { code: 'INVALID_PROTOCOL_CONFIG', message: configErrors.join('; ') }
+  }
+
+  return repository.createPointWithVersion(modelId, dto)
+}
+
+export const updatePoint = async (modelId: string, pointId: string, dto: PointInput) => {
+  const point = await repository.getPointById(pointId)
+  if (!point || point.modelId !== modelId) {
+    throw { code: 'POINT_NOT_FOUND', message: 'Point not found' }
+  }
+  if (dto.tag && dto.tag !== point.tag) {
+    const existingPoint = await repository.findPointByTag(modelId, dto.tag)
+    if (existingPoint && existingPoint.id !== pointId) {
+      throw { code: 'POINT_TAG_EXISTS', message: '点位标识已存在' }
+    }
+  }
+
+  if (dto.config) {
+    const model = await repository.getDeviceModelById(modelId)
+    if (!model) {
+      throw { code: 'DEVICE_MODEL_NOT_FOUND', message: 'Device model not found' }
+    }
+    const configErrors = validateProtocolConfig(model.protocol, dto.config)
+    if (configErrors.length > 0) {
+      throw { code: 'INVALID_PROTOCOL_CONFIG', message: configErrors.join('; ') }
+    }
+  }
+
+  return repository.updatePointWithVersion(modelId, pointId, dto)
+}
+
+export const deletePoint = async (modelId: string, pointId: string) => {
+  const point = await repository.getPointById(pointId)
+  if (!point || point.modelId !== modelId) {
+    throw { code: 'POINT_NOT_FOUND', message: 'Point not found' }
+  }
+
+  await repository.deletePointWithVersion(modelId, pointId)
 }
 
 export const deleteDeviceModel = async (id: string): Promise<DeviceModel> => {
@@ -71,26 +202,22 @@ export const importPoints = async (id: string, points: any[]): Promise<DeviceMod
   return repository.importPoints(id, points)
 }
 
+export const exportPoints = async (id: string) => {
+  const model = await repository.getDeviceModelById(id)
+  if (!model) {
+    throw { code: 'DEVICE_MODEL_NOT_FOUND', message: 'Device model not found' }
+  }
+  return repository.getAllModelPoints(id)
+}
+
 export const duplicateModel = async (id: string, newName?: string): Promise<DeviceModel> => {
-  // 1. 获取原模型
   const originalModel = await repository.getDeviceModelById(id)
   if (!originalModel) {
     throw new Error('Device model not found')
   }
 
-  // 2. 创建新模型，名称为 `${原名称}_副本` 或传入的 newName
   const name = newName || `${originalModel.name}_副本`
-
-  // 3. 复制所有点位（编码不变）
-  // 4. 版本号初始化为 v1.0
-  return repository.createDeviceModel({
-    name,
-    vendor: originalModel.vendor,
-    model: originalModel.model,
-    protocol: originalModel.protocol,
-    description: originalModel.description || undefined,
-    points: originalModel.points as object[]
-  })
+  return repository.duplicateDeviceModelWithPoints(id, name)
 }
 
 export const getVersionHistory = async (id: string): Promise<ModelVersion[]> => {

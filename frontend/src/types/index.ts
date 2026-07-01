@@ -39,13 +39,15 @@ export interface Gateway {
 export interface DeviceModel {
   id: string
   name: string
-  vendor: string
+  vendor?: string
   model: string
+  modelDI?: string
   protocol: string
   description: string | null
-  points: Point[]
-  status: 'ENABLED' | 'DISABLED'
-  version: string
+  points?: Point[]
+  pointCount?: number
+  status?: 'ENABLED' | 'DISABLED'
+  version: number
   createdAt: string
   updatedAt: string
 }
@@ -53,13 +55,16 @@ export interface DeviceModel {
 export interface Point {
   id?: string
   name: string
-  code: string
+  tag?: string
+  code?: string
   address: string
-  type: string
+  type?: string
   dataType: string
   unit?: string
   description?: string
   readWrite?: string
+  config?: Record<string, any>
+  sort?: number
 }
 
 export interface ModelVersion {

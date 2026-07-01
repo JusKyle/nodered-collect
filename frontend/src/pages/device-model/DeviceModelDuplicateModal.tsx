@@ -80,8 +80,8 @@ function DeviceModelDuplicateModal({
                 <span className="text-gray-900">{model.vendor}</span>
               </div>
               <div>
-                <span className="text-gray-500">型号：</span>
-                <span className="text-gray-900">{model.model}</span>
+                <span className="text-gray-500">模型ID：</span>
+                <span className="text-gray-900">{model.modelDI || model.model}</span>
               </div>
               <div>
                 <span className="text-gray-500">协议：</span>
@@ -89,7 +89,7 @@ function DeviceModelDuplicateModal({
               </div>
               <div className="col-span-2">
                 <span className="text-gray-500">点位数量：</span>
-                <span className="text-gray-900">{model.points.length} 个</span>
+                <span className="text-gray-900">{model.points?.length || 0} 个</span>
               </div>
             </div>
           </div>

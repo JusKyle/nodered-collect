@@ -13,7 +13,16 @@ const getClient = () => getRedisClient()
 export const generateGatewayBaseFlow = (gateway: any): any => {
   const gwId = gateway.id.replace(/-/g, '')
   const interval = gateway.heartbeatInterval || 30
-  const nodes: any[] = []
+  const flowId = `gateway-flow-${gwId}`
+  const nodes: any[] = [
+    {
+      id: flowId,
+      type: 'tab',
+      label: `Gateway ${gateway.name || gateway.id}`,
+      disabled: false,
+      info: ''
+    }
+  ]
   let y = 40
 
   const heartbeatInjectId = `hb-inject-${gwId}`
@@ -37,7 +46,7 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
   nodes.push({
     id: heartbeatInjectId,
     type: 'inject',
-    z: '',
+    z: flowId,
     name: 'heartbeat-trigger',
     payload: '',
     payloadType: 'none',
@@ -129,7 +138,7 @@ return msg;
   nodes.push({
     id: heartbeatFuncId,
     type: 'function',
-    z: '',
+    z: flowId,
     name: 'assemble-heartbeat',
     func: heartbeatFunc,
     outputs: 1,
@@ -146,7 +155,7 @@ return msg;
   nodes.push({
     id: heartbeatOutId,
     type: 'mqtt out',
-    z: '',
+    z: flowId,
     name: 'heartbeat-out',
     topic: 'gateway/' + gateway.id + '/heartbeat',
     qos: '1',
@@ -161,7 +170,7 @@ return msg;
   nodes.push({
     id: configInId,
     type: 'mqtt in',
-    z: '',
+    z: flowId,
     name: 'config-listener',
     topic: 'gateway/' + gateway.id + '/config',
     qos: '2',
@@ -176,7 +185,7 @@ return msg;
   nodes.push({
     id: configHttpId,
     type: 'http request',
-    z: '',
+    z: flowId,
     name: 'deploy-flows',
     method: 'POST',
     ret: 'obj',
@@ -192,7 +201,7 @@ return msg;
   nodes.push({
     id: configResultId,
     type: 'mqtt out',
-    z: '',
+    z: flowId,
     name: 'deploy-result',
     topic: 'gateway/' + gateway.id + '/config/result',
     qos: '1',
@@ -203,10 +212,10 @@ return msg;
     wires: []
   })
 
-  nodes[0].wires = [[heartbeatFuncId]]
-  nodes[1].wires = [[heartbeatOutId]]
-  nodes[3].wires = [[configHttpId]]
-  nodes[4].wires = [[configResultId]]
+  nodes.find((node) => node.id === heartbeatInjectId).wires = [[heartbeatFuncId]]
+  nodes.find((node) => node.id === heartbeatFuncId).wires = [[heartbeatOutId]]
+  nodes.find((node) => node.id === configInId).wires = [[configHttpId]]
+  nodes.find((node) => node.id === configHttpId).wires = [[configResultId]]
 
   const brokerConfig = {
     id: brokerId,
@@ -236,7 +245,16 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
   const allPoints = [...points, ...customPoints]
 
   const baseId = instance.id.replace(/-/g, '')
-  const nodes: any[] = []
+  const flowId = `device-flow-${baseId}`
+  const nodes: any[] = [
+    {
+      id: flowId,
+      type: 'tab',
+      label: `Device ${instance.name || instance.id}`,
+      disabled: false,
+      info: ''
+    }
+  ]
   let y = 400
 
   const mqttOutId = baseId + '-mqtt-out'
@@ -247,7 +265,7 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
   nodes.push({
     id: mqttOutId,
     type: 'mqtt out',
-    z: '',
+    z: flowId,
     name: 'data-report',
     topic: 'devices/' + instance.id + '/data',
     qos: '0',
@@ -262,7 +280,7 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
   nodes.push({
     id: debugId,
     type: 'debug',
-    z: '',
+    z: flowId,
     active: true,
     console: 'false',
     complete: 'payload',
@@ -277,7 +295,7 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
   nodes.push({
     id: intervalId,
     type: 'inject',
-    z: '',
+    z: flowId,
     name: 'collect-trigger',
     payload: '',
     payloadType: 'none',
@@ -298,7 +316,7 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
     nodes.push({
       id: s7NodeId,
       type: 'S7 in',
-      z: '',
+      z: flowId,
       name: 's7-read',
       endpoint: 'endpoint-' + baseId,
       address: instance.config?.deviceAddress || '',
@@ -308,13 +326,13 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
       wires: [[mqttOutId, debugId]]
     })
     protocolOutIds = [intervalId]
-    nodes[2].wires = [[s7NodeId]]
+    nodes.find((node) => node.id === intervalId).wires = [[s7NodeId]]
   } else if (protocol === 'modbus') {
     const modbusNodeId = baseId + '-modbus'
     nodes.push({
       id: modbusNodeId,
       type: 'modbus-read',
-      z: '',
+      z: flowId,
       name: 'modbus-read',
       server: 'server-' + baseId,
       dataType: 'Coils',
@@ -326,13 +344,13 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
       wires: [[mqttOutId, debugId]]
     })
     protocolOutIds = [intervalId]
-    nodes[2].wires = [[modbusNodeId]]
+    nodes.find((node) => node.id === intervalId).wires = [[modbusNodeId]]
   } else if (protocol === 'opcua') {
     const opcuaNodeId = baseId + '-opcua'
     nodes.push({
       id: opcuaNodeId,
       type: 'OpcUa-Client',
-      z: '',
+      z: flowId,
       name: 'opcua-read',
       endpoint: 'endpoint-' + baseId,
       securityPolicy: 'None',
@@ -342,13 +360,13 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
       wires: [[mqttOutId, debugId]]
     })
     protocolOutIds = [intervalId]
-    nodes[2].wires = [[opcuaNodeId]]
+    nodes.find((node) => node.id === intervalId).wires = [[opcuaNodeId]]
   } else {
     const httpNodeId = baseId + '-http'
     nodes.push({
       id: httpNodeId,
       type: 'http request',
-      z: '',
+      z: flowId,
       name: 'http-read',
       method: 'GET',
       ret: 'obj',
@@ -358,7 +376,7 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
       wires: [[mqttOutId, debugId]]
     })
     protocolOutIds = [intervalId]
-    nodes[2].wires = [[httpNodeId]]
+    nodes.find((node) => node.id === intervalId).wires = [[httpNodeId]]
   }
 
   return nodes
@@ -572,4 +590,28 @@ export const getAllSyncRecords = async (): Promise<SyncRecord[]> => {
 
 export const getSyncRecordsByGatewayId = async (gatewayId: string): Promise<SyncRecord[]> => {
   return repository.getSyncRecordsByGatewayId(gatewayId)
+}
+
+export const getSyncRecords = async (params: {
+  gatewayId?: string
+  status?: string
+  type?: string
+  startDate?: string
+  endDate?: string
+  page: number
+  pageSize: number
+}) => {
+  return repository.getSyncRecordsPaginated({
+    gatewayId: params.gatewayId,
+    status: params.status as SyncStatus | undefined,
+    type: params.type as SyncType | undefined,
+    startDate: params.startDate ? new Date(params.startDate) : undefined,
+    endDate: params.endDate ? new Date(params.endDate) : undefined,
+    page: params.page,
+    pageSize: params.pageSize
+  })
+}
+
+export const getSyncRecordDetail = async (id: string): Promise<SyncRecord | null> => {
+  return repository.getSyncRecordById(id)
 }

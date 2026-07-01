@@ -1,11 +1,8 @@
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 import { routes } from './routes'
 import { initializeMqttSubscriptions } from './services/mqtt.service'
 import { startBufferFlush, startOfflineChecker } from './services/data-collection.service'
-
-dotenv.config()
 
 export const app = express()
 

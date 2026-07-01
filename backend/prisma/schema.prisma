@@ -48,6 +48,17 @@ enum ModelStatus {
   DISABLED
 }
 
+enum DataType {
+  INT16
+  UINT16
+  INT32
+  UINT32
+  FLOAT32
+  FLOAT64
+  BOOL
+  STRING
+}
+
 model DeviceModel {
   id          String          @id @default(cuid())
   name        String
@@ -57,20 +68,41 @@ model DeviceModel {
   description String?
   points      Json            @default("[]")
   status      ModelStatus     @default(ENABLED)
-  version     String          @default("v1.0")
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  version     Int             @default(1)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   deviceInstances DeviceInstance[]
   versions        ModelVersion[]
+  pointModels     PointModel[]
 
   @@unique([name, vendor, model])
+}
+
+model PointModel {
+  id          String     @id @default(cuid())
+  modelId     String
+  name        String
+  tag         String
+  dataType    DataType
+  address     String
+  unit        String?
+  description String?
+  config      Json       @default("{}")
+  sort        Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  model       DeviceModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([modelId, tag])
+  @@index([modelId, sort])
 }
 
 model ModelVersion {
   id          String      @id @default(cuid())
   modelId     String
-  version     String
+  version     Int
   points      Json        @default("[]")
   createdAt   DateTime    @default(now())
 

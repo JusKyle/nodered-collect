@@ -6,8 +6,11 @@ interface DeviceModelStore {
   deviceModels: DeviceModel[]
   loading: boolean
   error: string | null
-  fetchDeviceModels: () => Promise<void>
-  createDeviceModel: (data: { name: string; vendor: string; model: string; protocol: string; description?: string; points: any[] }) => Promise<void>
+  total: number
+  page: number
+  pageSize: number
+  fetchDeviceModels: (params?: deviceModelApi.DeviceModelListParams) => Promise<void>
+  createDeviceModel: (data: { name: string; modelDI: string; protocol: string; description?: string }) => Promise<void>
   updateDeviceModel: (id: string, data: Partial<DeviceModel>) => Promise<void>
   deleteDeviceModel: (id: string) => Promise<void>
   importPoints: (id: string, points: Point[]) => Promise<void>
@@ -20,12 +23,21 @@ export const useDeviceModelStore = create<DeviceModelStore>((set) => ({
   deviceModels: [],
   loading: false,
   error: null,
+  total: 0,
+  page: 1,
+  pageSize: 20,
 
-  fetchDeviceModels: async () => {
+  fetchDeviceModels: async (params = {}) => {
     set({ loading: true, error: null })
     try {
-      const deviceModels = await deviceModelApi.getAllDeviceModels()
-      set({ deviceModels, loading: false })
+      const result = await deviceModelApi.getAllDeviceModels(params)
+      set({
+        deviceModels: result.list,
+        total: result.total,
+        page: result.page,
+        pageSize: result.pageSize,
+        loading: false
+      })
     } catch (error: any) {
       set({ error: error.message, loading: false })
     }
@@ -71,8 +83,8 @@ export const useDeviceModelStore = create<DeviceModelStore>((set) => ({
     set({ loading: true, error: null })
     try {
       await deviceModelApi.importPoints(id, points)
-      const deviceModels = await deviceModelApi.getAllDeviceModels()
-      set({ deviceModels, loading: false })
+      const result = await deviceModelApi.getAllDeviceModels()
+      set({ deviceModels: result.list, total: result.total, page: result.page, pageSize: result.pageSize, loading: false })
     } catch (error: any) {
       set({ error: error.message, loading: false })
     }
@@ -82,8 +94,8 @@ export const useDeviceModelStore = create<DeviceModelStore>((set) => ({
     set({ loading: true, error: null })
     try {
       await deviceModelApi.duplicateDeviceModel(id, newName)
-      const deviceModels = await deviceModelApi.getAllDeviceModels()
-      set({ deviceModels, loading: false })
+      const result = await deviceModelApi.getAllDeviceModels()
+      set({ deviceModels: result.list, total: result.total, page: result.page, pageSize: result.pageSize, loading: false })
     } catch (error: any) {
       set({ error: error.message, loading: false })
     }

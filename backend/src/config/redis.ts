@@ -1,9 +1,11 @@
-import { createClient, RedisClientType } from 'redis'
+import { createClient } from 'redis'
 import { env } from './env'
 
-let redisClient: RedisClientType
+type RedisClient = ReturnType<typeof createClient>
 
-const createRedisClient = (): RedisClientType => {
+let redisClient: RedisClient
+
+const createRedisClient = (): RedisClient => {
   const client = createClient({
     url: env.REDIS_URL,
     socket: {
@@ -32,8 +34,8 @@ const createRedisClient = (): RedisClientType => {
   return client
 }
 
-export const getRedisClient = (): RedisClientType => {
-  if (!redisClient || redisClient.isClosed) {
+export const getRedisClient = (): RedisClient => {
+  if (!redisClient || !(redisClient as any).isOpen) {
     redisClient = createRedisClient()
   }
   return redisClient

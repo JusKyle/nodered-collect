@@ -1,26 +1,46 @@
 import api from './axios'
 import type { DeviceModel, ModelVersion, Point } from '../types'
 
-export const getAllDeviceModels = async (): Promise<DeviceModel[]> => {
-  const response = await api.get('/device-models')
-  return response.data
+export interface DeviceModelListParams {
+  name?: string
+  protocol?: string
+  page?: number
+  pageSize?: number
+}
+
+export interface DeviceModelListResult {
+  list: DeviceModel[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export const getAllDeviceModels = async (params: DeviceModelListParams = {}): Promise<DeviceModelListResult> => {
+  const response = await api.get('/device-models', { params })
+  return response.data.data
 }
 
 export const getDeviceModelById = async (id: string): Promise<DeviceModel> => {
   const response = await api.get(`/device-models/${id}`)
-  return response.data
+  return response.data.data || response.data
+}
+
+export const updateDeviceModelBasic = async (
+  id: string,
+  data: { name?: string; modelDI?: string; description?: string }
+): Promise<DeviceModel> => {
+  const response = await api.put(`/device-models/${id}/basic`, data)
+  return response.data.data
 }
 
 export const createDeviceModel = async (data: {
   name: string
-  vendor: string
-  model: string
+  modelDI: string
   protocol: string
   description?: string
-  points: any[]
 }): Promise<DeviceModel> => {
   const response = await api.post('/device-models', data)
-  return response.data
+  return response.data.data
 }
 
 export const updateDeviceModel = async (
@@ -56,6 +76,40 @@ export const duplicateDeviceModel = async (id: string, newName?: string): Promis
 
 export const getDeviceModelVersions = async (id: string): Promise<ModelVersion[]> => {
   const response = await api.get(`/device-models/${id}/versions`)
+  return response.data
+}
+
+export interface PointListResult {
+  list: Point[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export const getModelPoints = async (
+  modelId: string,
+  params: { name?: string; page?: number; pageSize?: number } = {}
+): Promise<PointListResult> => {
+  const response = await api.get(`/device-models/${modelId}/points`, { params })
+  return response.data.data
+}
+
+export const createPoint = async (modelId: string, data: Partial<Point>): Promise<Point> => {
+  const response = await api.post(`/device-models/${modelId}/points`, data)
+  return response.data.data
+}
+
+export const updatePoint = async (modelId: string, pointId: string, data: Partial<Point>): Promise<Point> => {
+  const response = await api.put(`/device-models/${modelId}/points/${pointId}`, data)
+  return response.data.data
+}
+
+export const deletePoint = async (modelId: string, pointId: string): Promise<void> => {
+  await api.delete(`/device-models/${modelId}/points/${pointId}`)
+}
+
+export const exportPoints = async (modelId: string): Promise<Blob> => {
+  const response = await api.get(`/device-models/${modelId}/points/export`, { responseType: 'blob' })
   return response.data
 }
 

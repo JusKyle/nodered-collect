@@ -3,48 +3,45 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: collecting-system-postgres
+    container_name: postgres-collect
     environment:
       POSTGRES_DB: collecting_system
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
-    container_name: collecting-system-redis
+    container_name: redis-collect
     ports:
-      - "6379:6379"
+      - "6378:6379"
     volumes:
       - redis_data:/data
 
   emqx:
-    image: emqx:5
-    container_name: collecting-system-emqx
+    image: emqx/emqx:latest
+    container_name: emqx-collect
     environment:
       EMQX_LISTENER__TCP__DEFAULT__BIND: "0.0.0.0:1883"
-      EMQX_LISTENER__WS__DEFAULT__BIND: "0.0.0.0:8083"
     ports:
-      - "1883:1883"
-      - "8083:8083"
-      - "8084:8084"
-      - "18083:18083"
+      - "1884:1883"
+      - "18084:18083"
     volumes:
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
 
   nodered:
     image: nodered/node-red:latest
-    container_name: collecting-system-nodered
+    container_name: nodered-collect
     environment:
       - TZ=Asia/Shanghai
       - MQTT_HOST=emqx
       - MQTT_PORT=1883
     ports:
-      - "1880:1880"
+      - "1888:1880"
     volumes:
       - nodered_data:/data
     depends_on:
@@ -54,7 +51,7 @@ services:
     build:
       context: .
       dockerfile: deployment/docker/backend/Dockerfile
-    container_name: collecting-system-backend
+    container_name: backend-collect
     environment:
       DATABASE_URL: postgresql://admin:password@postgres:5432/collecting_system?schema=public
       REDIS_URL: redis://redis:6379
@@ -74,7 +71,7 @@ services:
     build:
       context: .
       dockerfile: deployment/docker/frontend/Dockerfile
-    container_name: collecting-system-frontend
+    container_name: frontend-collect
     ports:
       - "80:80"
     depends_on:
