@@ -4,6 +4,7 @@ import { deviceModelRouter } from '../modules/device-model/device-model.router'
 import { deviceInstanceRouter } from '../modules/device-instance/device-instance.router'
 import { syncRouter } from '../modules/sync/sync.router'
 import { registrationRouter } from '../modules/registration/registration.router'
+import { platformConfigRouter } from '../modules/platform-config/platform-config.router'
 import { deviceDataRouter } from '../modules/device-data/device-data.router'
 import { sseService } from '../services/sse.service'
 
@@ -14,6 +15,7 @@ routes.use('/device-models', deviceModelRouter)
 routes.use('/device-instances', deviceInstanceRouter)
 routes.use('/sync', syncRouter)
 routes.use('/registration', registrationRouter)
+routes.use('/platform-config', platformConfigRouter)
 routes.use('/device-data', deviceDataRouter)
 
 routes.get('/events', (req, res) => {

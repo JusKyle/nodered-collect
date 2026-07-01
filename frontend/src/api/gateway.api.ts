@@ -81,6 +81,30 @@ export const updateGatewayStatus = async (id: string, status: string): Promise<G
   return response.data
 }
 
+export interface PerformancePoint {
+  timestamp: string
+  cpuUsage: number | null
+  memoryUsage: number | null
+  diskUsage: number | null
+}
+
+export interface PerformanceQuery {
+  gatewayId: string
+  startTime?: string
+  endTime?: string
+  interval?: '1m' | '5m' | '15m' | '1h' | '1d'
+}
+
+export const getPerformanceHistory = async (query: PerformanceQuery): Promise<PerformancePoint[]> => {
+  const params = new URLSearchParams()
+  params.append('gatewayId', query.gatewayId)
+  if (query.startTime) params.append('startTime', query.startTime)
+  if (query.endTime) params.append('endTime', query.endTime)
+  if (query.interval) params.append('interval', query.interval)
+  const response = await api.get(`/gateways/performance/history?${params.toString()}`)
+  return response.data
+}
+
 export const generateRegistrationCode = async (data: {
   gatewayName: string
   expiresIn: number

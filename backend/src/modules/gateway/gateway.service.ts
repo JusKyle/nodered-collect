@@ -4,7 +4,7 @@ import { prisma } from '../../config/db'
 import { sseService } from '../../services/sse.service'
 import * as repository from './gateway.repository'
 import type { GatewayListParams, GatewayListResult } from './gateway.repository'
-import { CreateGatewayDto, UpdateGatewayDto, TestConnectionDto } from './gateway.dto'
+import { CreateGatewayDto, UpdateGatewayDto, TestConnectionDto, PerformanceQueryDto } from './gateway.dto'
 import { markGatewayTokenExpired } from '../../services/heartbeat.service'
 import { deployGatewayBaseFlow } from '../sync/sync.service'
 import { getRedisClient } from '../../config/redis'
@@ -227,4 +227,87 @@ export const testConnection = async (
 
   const allPassed = results.every(r => r.passed)
   return { results, allPassed }
+}
+
+export interface VerifyTokenResult {
+  valid: boolean
+  gatewayId?: string
+  gatewayName?: string
+}
+
+export const verifyAdminToken = async (
+  gatewayId: string,
+  token: string
+): Promise<VerifyTokenResult> => {
+  const gateway = await repository.getGatewayById(gatewayId)
+  if (!gateway) {
+    return { valid: false }
+  }
+  if (gateway.adminToken !== token) {
+    return { valid: false }
+  }
+  return {
+    valid: true,
+    gatewayId: gateway.id,
+    gatewayName: gateway.name
+  }
+}
+
+export interface PerformancePoint {
+  timestamp: Date
+  cpuUsage: number | null
+  memoryUsage: number | null
+  diskUsage: number | null
+}
+
+export const getPerformanceHistory = async (
+  dto: PerformanceQueryDto
+): Promise<PerformancePoint[]> => {
+  const { gatewayId, interval = '5m' } = dto
+  const endTime = dto.endTime || new Date()
+  const startTime = dto.startTime || new Date(endTime.getTime() - 24 * 60 * 60 * 1000)
+
+  const data = await prisma.gatewayPerformance.findMany({
+    where: {
+      gatewayId,
+      timestamp: {
+        gte: startTime,
+        lte: endTime
+      }
+    },
+    orderBy: { timestamp: 'asc' },
+    take: 500
+  })
+
+  const intervalMs = {
+    '1m': 60 * 1000,
+    '5m': 5 * 60 * 1000,
+    '15m': 15 * 60 * 1000,
+    '1h': 60 * 60 * 1000,
+    '1d': 24 * 60 * 60 * 1000
+  }[interval]
+
+  const buckets = new Map<number, { cpu: number[]; mem: number[]; disk: number[] }>()
+
+  for (const point of data) {
+    const bucketKey = Math.floor(point.timestamp.getTime() / intervalMs) * intervalMs
+    if (!buckets.has(bucketKey)) {
+      buckets.set(bucketKey, { cpu: [], mem: [], disk: [] })
+    }
+    const bucket = buckets.get(bucketKey)!
+    if (point.cpuUsage !== null) bucket.cpu.push(point.cpuUsage)
+    if (point.memoryUsage !== null) bucket.mem.push(point.memoryUsage)
+    if (point.diskUsage !== null) bucket.disk.push(point.diskUsage)
+  }
+
+  const result: PerformancePoint[] = Array.from(buckets.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([timestamp, bucket]) => ({
+      timestamp: new Date(timestamp),
+      cpuUsage: bucket.cpu.length > 0 ? bucket.cpu.reduce((a, b) => a + b, 0) / bucket.cpu.length : null,
+      memoryUsage: bucket.mem.length > 0 ? bucket.mem.reduce((a, b) => a + b, 0) / bucket.mem.length : null,
+      diskUsage: bucket.disk.length > 0 ? bucket.disk.reduce((a, b) => a + b, 0) / bucket.disk.length : null
+    }))
+
+  return result
 }

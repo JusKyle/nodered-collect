@@ -39,7 +39,15 @@ export const testConnectionDto = z.object({
   'Either gatewayId is required, or address and adminToken must both be provided'
 )
 
+export const performanceQueryDto = z.object({
+  gatewayId: z.string(),
+  startTime: z.coerce.date().optional(),
+  endTime: z.coerce.date().optional(),
+  interval: z.enum(['1m', '5m', '15m', '1h', '1d']).optional().default('5m')
+})
+
 export type CreateGatewayDto = z.infer<typeof createGatewayDto>
 export type UpdateGatewayDto = z.infer<typeof updateGatewayDto>
 export type GatewayListQueryDto = z.infer<typeof gatewayListQueryDto>
 export type TestConnectionDto = z.infer<typeof testConnectionDto>
+export type PerformanceQueryDto = z.infer<typeof performanceQueryDto>

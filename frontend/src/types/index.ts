@@ -14,6 +14,9 @@ export interface Gateway {
   createdAt: string
   updatedAt: string
   description?: string
+  cacheEnabled?: boolean | null
+  cacheRetentionDays?: number | null
+  cacheReplayRate?: number | null
 }
 
 export interface DeviceModel {

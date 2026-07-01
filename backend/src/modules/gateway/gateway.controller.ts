@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import * as service from './gateway.service'
-import { createGatewayDto, updateGatewayDto, testConnectionDto, gatewayListQueryDto } from './gateway.dto'
+import { createGatewayDto, updateGatewayDto, testConnectionDto, gatewayListQueryDto, performanceQueryDto } from './gateway.dto'
 
 export const getAllGateways = async (req: Request, res: Response) => {
   const validation = gatewayListQueryDto.safeParse(req.query)
@@ -79,4 +79,28 @@ export const updateGatewayStatus = async (req: Request, res: Response) => {
   }
   const gateway = await service.updateGateway(id, { status })
   res.json(gateway)
+}
+
+export const verifyToken = async (req: Request, res: Response) => {
+  const { gatewayId } = req.params
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ valid: false })
+  }
+  const token = authHeader.slice(7)
+  const result = await service.verifyAdminToken(gatewayId, token)
+  if (result.valid) {
+    res.json(result)
+  } else {
+    res.status(401).json(result)
+  }
+}
+
+export const getPerformanceHistory = async (req: Request, res: Response) => {
+  const validation = performanceQueryDto.safeParse(req.query)
+  if (!validation.success) {
+    return res.status(400).json({ error: validation.error })
+  }
+  const data = await service.getPerformanceHistory(validation.data)
+  res.json(data)
 }

@@ -10,6 +10,7 @@ interface GatewayEditModalProps {
   isOpen: boolean
   onClose: () => void
   gateway: Gateway | null
+  onSuccess?: () => void
 }
 
 const schema = z.object({
@@ -31,7 +32,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-function GatewayEditModal({ isOpen, onClose, gateway }: GatewayEditModalProps) {
+function GatewayEditModal({ isOpen, onClose, gateway, onSuccess }: GatewayEditModalProps) {
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -99,6 +100,7 @@ function GatewayEditModal({ isOpen, onClose, gateway }: GatewayEditModalProps) {
         adminToken: data.adminToken,
       })
       await fetchGateways()
+      onSuccess?.()
       handleClose()
     } catch (error: any) {
       console.error('更新网关失败:', error)
