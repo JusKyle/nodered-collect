@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGatewayStore } from '../../stores/gateway.store'
 import { useGatewaySSE } from '../../hooks/useGatewaySSE'
@@ -20,24 +20,28 @@ function GatewayList() {
     total,
     totalPages,
     filterName,
+    filterAddress,
     filterStatus,
     setPage,
     setFilterName,
+    setFilterAddress,
     setFilterStatus
   } = useGatewayStore()
 
-  const [searchName, setSearchName] = useState('')
-  const [searchIp, setSearchIp] = useState('')
+  const [searchName, setSearchName] = useState(filterName)
+  const [searchIp, setSearchIp] = useState(filterAddress)
   const [filterNrVersion, setFilterNrVersion] = useState('')
+  const [searchStatus, setSearchStatus] = useState(filterStatus)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isTestResultModalOpen, setIsTestResultModalOpen] = useState(false)
   const [testResults, setTestResults] = useState<TestResultItem[]>([])
   const [testConnLoading, setTestConnLoading] = useState<string | null>(null)
-  const [activeDeleteId, setActiveDeleteId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Gateway | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   useEffect(() => {
     fetchGateways()
-  }, [page, filterName, filterStatus])
+  }, [page, filterName, filterAddress, filterStatus, fetchGateways])
 
   useGatewaySSE((event) => {
     updateGatewayStatus(event.gatewayId, event.status, {
@@ -48,8 +52,20 @@ function GatewayList() {
     } as Partial<Gateway>)
   })
 
+  const displayGateways = useMemo(() => {
+    if (!filterNrVersion) return gateways
+    return gateways.filter((g) => g.nodeRedVersion === filterNrVersion)
+  }, [gateways, filterNrVersion])
+
+  const displayTotal = useMemo(() => {
+    if (!filterNrVersion) return total
+    return displayGateways.length
+  }, [total, filterNrVersion, displayGateways.length])
+
   const handleSearch = () => {
     setFilterName(searchName)
+    setFilterAddress(searchIp)
+    setFilterStatus(searchStatus)
     setPage(1)
   }
 
@@ -57,8 +73,10 @@ function GatewayList() {
     setSearchName('')
     setSearchIp('')
     setFilterNrVersion('')
-    setFilterStatus('')
+    setSearchStatus('')
     setFilterName('')
+    setFilterAddress('')
+    setFilterStatus('')
     setPage(1)
   }
 
@@ -87,6 +105,21 @@ function GatewayList() {
 
   const handleGoToDevices = (gateway: Gateway) => {
     navigate(`/device-instances?gateway=${encodeURIComponent(gateway.name)}`)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return
+    setDeleteLoading(true)
+    try {
+      await useGatewayStore.getState().deleteGateway(deleteTarget.id)
+      showToast('删除成功', 'success')
+      setDeleteTarget(null)
+      fetchGateways()
+    } catch (error: any) {
+      showToast(error.response?.data?.message || '删除失败', 'error')
+    } finally {
+      setDeleteLoading(false)
+    }
   }
 
   const formatDate = (date: Date | string | null | undefined) => {
@@ -142,6 +175,7 @@ function GatewayList() {
               placeholder="搜索IP地址..."
               value={searchIp}
               onChange={(e) => setSearchIp(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
             />
           </div>
@@ -160,8 +194,8 @@ function GatewayList() {
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1.5">状态</label>
             <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              value={searchStatus}
+              onChange={(e) => setSearchStatus(e.target.value)}
               className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">全部</option>
@@ -204,14 +238,14 @@ function GatewayList() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
                 </td>
               </tr>
-            ) : gateways.length === 0 ? (
+            ) : displayGateways.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-5 py-12 text-center text-gray-500">
                   暂无网关数据
                 </td>
               </tr>
             ) : (
-              gateways.map((gateway) => (
+              displayGateways.map((gateway) => (
                 <tr key={gateway.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
@@ -236,7 +270,7 @@ function GatewayList() {
                   <td className="px-5 py-4 text-gray-600 text-sm">{gateway.flowCount ?? '-'}</td>
                   <td className="px-5 py-4 text-gray-600 text-sm">{formatDate(gateway.lastHeartbeat)}</td>
                   <td className="px-5 py-4">
-                    <div className="flex items-center gap-4 text-sm relative">
+                    <div className="flex items-center gap-4 text-sm">
                       <button
                         onClick={() => handleTestConnection(gateway)}
                         disabled={testConnLoading === gateway.id}
@@ -251,53 +285,11 @@ function GatewayList() {
                         设备
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setActiveDeleteId(activeDeleteId === gateway.id ? null : gateway.id)
-                        }}
+                        onClick={() => setDeleteTarget(gateway)}
                         className="text-red-500 hover:text-red-700 font-medium transition-colors"
                       >
                         删除
                       </button>
-                      {activeDeleteId === gateway.id && (
-                        <div
-                          className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-xl p-5 z-20 w-80"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex items-start gap-3 mb-4">
-                            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                              <i className="fas fa-trash-alt text-red-500"></i>
-                            </div>
-                            <div>
-                              <p className="text-gray-900 font-semibold">确定删除网关「{gateway.name}」吗？</p>
-                              <p className="text-gray-500 text-sm mt-1">已关联的设备实例将保留不变</p>
-                            </div>
-                          </div>
-                          <div className="flex justify-end gap-3">
-                            <button
-                              onClick={() => setActiveDeleteId(null)}
-                              className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
-                            >
-                              取消
-                            </button>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await useGatewayStore.getState().deleteGateway(gateway.id)
-                                  showToast('删除成功', 'success')
-                                  setActiveDeleteId(null)
-                                  fetchGateways()
-                                } catch (error: any) {
-                                  showToast(error.response?.data?.message || '删除失败', 'error')
-                                }
-                              }}
-                              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors"
-                            >
-                              确定
-                            </button>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -311,7 +303,7 @@ function GatewayList() {
         <div className="flex justify-between items-center mt-5">
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <span>共</span>
-            <span className="font-medium text-gray-900">{total}</span>
+            <span className="font-medium text-gray-900">{displayTotal}</span>
             <span>条记录</span>
           </div>
           <div className="flex items-center gap-1">
@@ -352,6 +344,44 @@ function GatewayList() {
         }}
         results={testResults}
       />
+
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-[420px] p-6">
+            <div className="flex items-start gap-4 mb-5">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <i className="fas fa-exclamation-triangle text-red-500 text-lg"></i>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">确认删除网关</h3>
+                <p className="text-gray-500 text-sm mt-2">
+                  确定删除网关「{deleteTarget.name}」吗？
+                </p>
+                <p className="text-gray-500 text-sm mt-1">
+                  删除后将同时移除关联的设备实例、同步记录等数据，此操作不可撤销。
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleteLoading}
+                className="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleteLoading}
+                className="px-5 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {deleteLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -51,12 +51,87 @@ export const generateGatewayBaseFlow = (gateway: any): any => {
   })
   y += 80
 
+  const heartbeatFunc = `
+const gateway = ${gatewayInfo};
+
+// 从 global context 获取 os/fs 模块（需在 Node-RED settings.js 中配置 functionGlobalContext）
+const os = global.get('os');
+const fs = global.get('fs');
+
+// 默认值
+let cpuUsage = null;
+let memoryUsage = null;
+let diskUsage = null;
+let diskFreeBytes = null;
+
+// 如果 os 模块可用，计算 CPU 和内存使用率
+if (os) {
+  try {
+    // CPU 使用率
+    const cpus = os.cpus();
+    let user = 0, nice = 0, sys = 0, idle = 0, irq = 0;
+    for (let i = 0; i < cpus.length; i++) {
+      const t = cpus[i].times;
+      user += t.user;
+      nice += t.nice;
+      sys += t.sys;
+      idle += t.idle;
+      irq += t.irq;
+    }
+    const total = user + nice + sys + idle + irq;
+    if (total > 0) {
+      cpuUsage = Math.round(((total - idle) / total) * 100 * 10) / 10;
+    }
+    
+    // 内存使用率
+    const totalMem = os.totalmem();
+    const freeMem = os.freemem();
+    if (totalMem > 0) {
+      memoryUsage = Math.round(((totalMem - freeMem) / totalMem) * 100 * 10) / 10;
+    }
+  } catch (e) {}
+  
+  // 磁盘使用率（需要 fs 模块）
+  if (fs) {
+    try {
+      let diskPath = '/';
+      if (os.platform && os.platform() === 'win32') {
+        diskPath = 'C:\\\\';
+      }
+      if (fs.statfsSync) {
+        const stat = fs.statfsSync(diskPath);
+        const totalDisk = stat.blocks * stat.bsize;
+        const freeDisk = stat.bfree * stat.bsize;
+        if (totalDisk > 0) {
+          diskUsage = Math.round(((totalDisk - freeDisk) / totalDisk) * 100 * 10) / 10;
+          diskFreeBytes = freeDisk;
+        }
+      }
+    } catch (e) {}
+  }
+}
+
+msg.payload = {
+  gatewayId: gateway.id,
+  timestamp: Date.now(),
+  status: 'online',
+  nodeRedVersion: gateway.nodeRedVersion,
+  ip: gateway.ip,
+  flowCount: gateway.flowCount,
+  cpuUsage: cpuUsage,
+  memoryUsage: memoryUsage,
+  diskUsage: diskUsage,
+  diskFreeBytes: diskFreeBytes
+};
+return msg;
+`.trim()
+
   nodes.push({
     id: heartbeatFuncId,
     type: 'function',
     z: '',
     name: 'assemble-heartbeat',
-    func: `const gateway = ${gatewayInfo};\nmsg.payload = {\n  gatewayId: gateway.id,\n  timestamp: Date.now(),\n  status: 'online',\n  nodeRedVersion: gateway.nodeRedVersion,\n  ip: gateway.ip,\n  flowCount: gateway.flowCount\n};\nreturn msg;`,
+    func: heartbeatFunc,
     outputs: 1,
     noerr: 0,
     initialize: '',

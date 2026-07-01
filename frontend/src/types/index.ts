@@ -17,6 +17,23 @@ export interface Gateway {
   cacheEnabled?: boolean | null
   cacheRetentionDays?: number | null
   cacheReplayRate?: number | null
+  cacheStatus?: {
+    id: string
+    gatewayId: string
+    cachingEnabled: boolean
+    isCaching: boolean
+    cacheCount: number
+    cacheSizeBytes: number
+    replayCount: number
+    replayRate: number
+    replayStatus: string
+    firstCachedAt: string | null
+    latestCachedAt: string | null
+    replayStartedAt: string | null
+    replayFinishedAt: string | null
+    createdAt: string
+    updatedAt: string
+  } | null
 }
 
 export interface DeviceModel {

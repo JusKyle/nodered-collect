@@ -105,6 +105,29 @@ export const getPerformanceHistory = async (query: PerformanceQuery): Promise<Pe
   return response.data
 }
 
+export interface CacheStatus {
+  id: string
+  gatewayId: string
+  cachingEnabled: boolean
+  isCaching: boolean
+  cacheCount: number
+  cacheSizeBytes: number
+  replayCount: number
+  replayRate: number
+  replayStatus: string
+  firstCachedAt: string | null
+  latestCachedAt: string | null
+  replayStartedAt: string | null
+  replayFinishedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export const clearCache = async (gatewayId: string): Promise<CacheStatus> => {
+  const response = await api.post(`/gateways/${gatewayId}/clear-cache`)
+  return response.data
+}
+
 export const generateRegistrationCode = async (data: {
   gatewayName: string
   expiresIn: number

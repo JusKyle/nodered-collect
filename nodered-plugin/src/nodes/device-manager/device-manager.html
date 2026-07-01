@@ -5,7 +5,10 @@
     defaults: {
       name: { value: '' },
       platformUrl: { value: 'http://localhost:3000/api' },
-      registrationCode: { value: '' }
+      registrationCode: { value: '' },
+      mqttUrl: { value: 'mqtt://localhost:1883' },
+      mqttUsername: { value: '' },
+      mqttPassword: { value: '' }
     },
     inputs: 0,
     outputs: 0,
@@ -30,5 +33,17 @@
   <div class="form-row">
     <label for="node-input-registrationCode"><i class="fa fa-key"></i> Registration Code</label>
     <input type="text" id="node-input-registrationCode" placeholder="Enter registration code">
+  </div>
+  <div class="form-row">
+    <label for="node-input-mqttUrl"><i class="fa fa-exchange"></i> MQTT URL</label>
+    <input type="text" id="node-input-mqttUrl" placeholder="mqtt://localhost:1883">
+  </div>
+  <div class="form-row">
+    <label for="node-input-mqttUsername"><i class="fa fa-user"></i> MQTT Username</label>
+    <input type="text" id="node-input-mqttUsername" placeholder="Optional">
+  </div>
+  <div class="form-row">
+    <label for="node-input-mqttPassword"><i class="fa fa-lock"></i> MQTT Password</label>
+    <input type="password" id="node-input-mqttPassword" placeholder="Optional">
   </div>
 </script>

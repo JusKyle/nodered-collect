@@ -66,6 +66,52 @@ export const getGatewayById = async (id: string): Promise<Gateway | null> => {
   return prisma.gateway.findUnique({ where: { id } })
 }
 
+const transformCacheStatus = (cacheStatus: any) => {
+  if (!cacheStatus) return null
+  return {
+    ...cacheStatus,
+    cacheSizeBytes: Number(cacheStatus.cacheSizeBytes)
+  }
+}
+
+export const getGatewayDetailById = async (id: string) => {
+  const gateway = await prisma.gateway.findUnique({
+    where: { id },
+    include: {
+      cacheStatus: true
+    }
+  })
+  if (!gateway) return null
+  return {
+    ...gateway,
+    cacheStatus: transformCacheStatus((gateway as any).cacheStatus)
+  }
+}
+
+export const clearCache = async (gatewayId: string) => {
+  const result = await prisma.gatewayCacheStatus.upsert({
+    where: { gatewayId },
+    create: {
+      gatewayId,
+      cacheCount: 0,
+      cacheSizeBytes: BigInt(0),
+      firstCachedAt: null,
+      latestCachedAt: null,
+      replayCount: 0,
+      replayStatus: 'IDLE'
+    },
+    update: {
+      cacheCount: 0,
+      cacheSizeBytes: BigInt(0),
+      firstCachedAt: null,
+      latestCachedAt: null,
+      replayCount: 0,
+      replayStatus: 'IDLE'
+    }
+  })
+  return transformCacheStatus(result)
+}
+
 export const getByAddress = async (
   address: string,
   port: number
@@ -83,7 +129,21 @@ export const updateGateway = async (
 }
 
 export const deleteGateway = async (id: string): Promise<Gateway> => {
-  return prisma.gateway.delete({ where: { id } })
+  return prisma.$transaction(async (tx) => {
+    // 删除同步记录
+    await tx.syncRecord.deleteMany({ where: { gatewayId: id } })
+    // 删除设备数据点
+    await tx.deviceDataPoint.deleteMany({ where: { gatewayId: id } })
+    // 删除设备实例
+    await tx.deviceInstance.deleteMany({ where: { gatewayId: id } })
+    // 解绑注册码（设置为 null）
+    await tx.registrationCode.updateMany({
+      where: { gatewayId: id },
+      data: { gatewayId: null }
+    })
+    // 删除网关（GatewayPerformance 和 GatewayCacheStatus 会级联删除）
+    return tx.gateway.delete({ where: { id } })
+  })
 }
 
 export const updateGatewayStatus = async (

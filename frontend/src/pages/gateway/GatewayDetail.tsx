@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGatewayStore } from '../../stores/gateway.store'
 import GatewayEditModal from './GatewayEditModal'
 import PerformanceMonitor from '../../components/PerformanceMonitor'
 import CacheConfigModal from './CacheConfigModal'
+import TestResultModal from './TestResultModal'
 import * as gatewayApi from '../../api/gateway.api'
 import type { Gateway } from '../../types'
+import type { TestResultItem, CacheStatus } from '../../api/gateway.api'
 import { showToast } from '../../utils/toast'
 
 function GatewayDetail() {
@@ -13,27 +15,35 @@ function GatewayDetail() {
   const navigate = useNavigate()
   const { deleteGateway } = useGatewayStore()
   const [gateway, setGateway] = useState<Gateway | null>(null)
+  const [cacheStatus, setCacheStatus] = useState<CacheStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isCacheModalOpen, setIsCacheModalOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isTestResultModalOpen, setIsTestResultModalOpen] = useState(false)
+  const [testResults, setTestResults] = useState<TestResultItem[]>([])
+  const [testConnLoading, setTestConnLoading] = useState(false)
+  const [clearingCache, setClearingCache] = useState(false)
 
-  useEffect(() => {
-    loadGateway()
-  }, [id])
-
-  const loadGateway = async () => {
+  const loadGateway = useCallback(async () => {
     if (!id) return
     setLoading(true)
     try {
       const data = await gatewayApi.getGatewayById(id)
       setGateway(data)
+      if (data.cacheStatus) {
+        setCacheStatus(data.cacheStatus)
+      }
     } catch (error: any) {
       showToast(error.response?.data?.message || '加载网关详情失败', 'error')
     } finally {
       setLoading(false)
     }
-  }
+  }, [id])
+
+  useEffect(() => {
+    loadGateway()
+  }, [loadGateway])
 
   const handleEditSuccess = () => {
     setIsEditModalOpen(false)
@@ -51,6 +61,38 @@ function GatewayDetail() {
     }
   }
 
+  const handleTestConnection = async () => {
+    if (!gateway) return
+    setTestConnLoading(true)
+    try {
+      const result = await gatewayApi.testConnection({
+        gatewayId: gateway.id,
+        port: gateway.port,
+      })
+      setTestResults(result.results)
+      setIsTestResultModalOpen(true)
+      loadGateway()
+    } catch (error: any) {
+      showToast(error.response?.data?.message || '测试连接失败', 'error')
+    } finally {
+      setTestConnLoading(false)
+    }
+  }
+
+  const handleClearCache = async () => {
+    if (!id) return
+    setClearingCache(true)
+    try {
+      const result = await gatewayApi.clearCache(id)
+      setCacheStatus(result)
+      showToast('缓存已清空', 'success')
+    } catch (error: any) {
+      showToast(error.response?.data?.message || '清空缓存失败', 'error')
+    } finally {
+      setClearingCache(false)
+    }
+  }
+
   const formatDate = (date: Date | string | null | undefined) => {
     if (!date) return '-'
     const d = new Date(date)
@@ -63,6 +105,13 @@ function GatewayDetail() {
   }
 
   const isOnline = gateway?.status === 'ONLINE'
+
+  const cacheCount = cacheStatus?.cacheCount ?? 0
+  const cacheSizeBytes = cacheStatus?.cacheSizeBytes ?? 0
+  const maxCacheBytes = 100 * 1024 * 1024
+  const cacheUsagePercent = Math.min(Math.round((Number(cacheSizeBytes) / maxCacheBytes) * 100), 100)
+  const cacheEarliest = cacheStatus?.firstCachedAt ? formatDate(cacheStatus.firstCachedAt) : '-'
+  const cacheLatest = cacheStatus?.latestCachedAt ? formatDate(cacheStatus.latestCachedAt) : '-'
 
   if (loading) {
     return (
@@ -133,7 +182,15 @@ function GatewayDetail() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 relative">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleTestConnection}
+              disabled={testConnLoading}
+              className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+            >
+              <i className="fas fa-vial text-sm"></i>
+              {testConnLoading ? '测试中...' : '测试'}
+            </button>
             <button
               onClick={() => navigate(`/device-instances?gateway=${encodeURIComponent(gateway.name)}`)}
               className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium flex items-center gap-2 transition-colors"
@@ -152,36 +209,6 @@ function GatewayDetail() {
             >
               <i className="fas fa-trash-alt text-sm"></i>删除
             </button>
-            {showDeleteConfirm && (
-              <div
-                className="absolute right-0 top-12 bg-white border border-gray-200 rounded-xl shadow-xl p-5 z-20 w-80"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <i className="fas fa-trash-alt text-red-500"></i>
-                  </div>
-                  <div>
-                    <p className="text-gray-900 font-semibold">确定删除网关「{gateway.name}」吗？</p>
-                    <p className="text-gray-500 text-sm mt-1">已关联的设备实例将保留不变</p>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => setShowDeleteConfirm(false)}
-                    className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
-                  >
-                    取消
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors"
-                  >
-                    确定
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -233,59 +260,105 @@ function GatewayDetail() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6 shadow-sm">
-        <div className="flex justify-between items-start mb-5">
-          <h3 className="text-lg font-bold text-gray-900">缓存配置</h3>
-          <div className="flex items-center gap-3">
-            <span className="px-2.5 py-1 bg-primary-500/10 text-primary-500 rounded-full text-xs font-medium">
-              网关级
-            </span>
+      <div className="grid grid-cols-2 gap-6 mt-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="flex justify-between items-start mb-5">
+            <h3 className="text-lg font-bold text-gray-900">缓存状态</h3>
             <button
-              onClick={() => setIsCacheModalOpen(true)}
-              className="text-primary-500 hover:text-indigo-600 text-sm font-medium transition-colors"
+              onClick={handleClearCache}
+              disabled={clearingCache}
+              className="text-primary-500 hover:text-indigo-600 text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
             >
-              编辑
+              {clearingCache && <i className="fas fa-spinner fa-spin text-xs"></i>}
+              清空缓存
             </button>
           </div>
+          <div className="space-y-5">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-gray-900">缓存条数</div>
+                <div className="text-sm font-bold text-gray-900">{cacheCount.toLocaleString()} 条</div>
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium text-gray-900">存储占用</div>
+                <div className="text-sm font-medium text-gray-900">{cacheUsagePercent}%</div>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2">
+                <div
+                  className="bg-primary-500 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${cacheUsagePercent}%` }}
+                ></div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-gray-500 mb-1">最早数据</div>
+                <div className="text-sm font-medium text-gray-900">{cacheEarliest}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">最新数据</div>
+                <div className="text-sm font-medium text-gray-900">{cacheLatest}</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium text-gray-900">缓存开关</div>
-              <div className="text-xs text-gray-500 mt-1">开启后断网时数据将本地缓存</div>
-            </div>
-            <div className="text-sm font-medium text-gray-900">
-              {gateway.cacheEnabled !== null && gateway.cacheEnabled !== undefined
-                ? gateway.cacheEnabled ? '开启' : '关闭'
-                : '继承平台级'}
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium text-gray-900">保存期限</div>
-              <div className="text-xs text-gray-500 mt-1">缓存数据最长保留时间</div>
-            </div>
-            <div className="text-sm font-medium text-gray-900">
-              {gateway.cacheRetentionDays !== null && gateway.cacheRetentionDays !== undefined
-                ? `${gateway.cacheRetentionDays} 天`
-                : '继承平台级'}
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="flex justify-between items-start mb-5">
+            <h3 className="text-lg font-bold text-gray-900">缓存配置</h3>
+            <div className="flex items-center gap-3">
+              <span className="px-2.5 py-1 bg-primary-500/10 text-primary-500 rounded-full text-xs font-medium">
+                网关级
+              </span>
+              <button
+                onClick={() => setIsCacheModalOpen(true)}
+                className="text-primary-500 hover:text-indigo-600 text-sm font-medium transition-colors"
+              >
+                编辑
+              </button>
             </div>
           </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium text-gray-900">补发速率</div>
-              <div className="text-xs text-gray-500 mt-1">网络恢复后数据补发速度</div>
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-gray-900">缓存开关</div>
+                <div className="text-xs text-gray-500 mt-1">开启后断网时数据将本地缓存</div>
+              </div>
+              <div className="text-sm font-medium text-gray-900">
+                {gateway.cacheEnabled !== null && gateway.cacheEnabled !== undefined
+                  ? gateway.cacheEnabled ? '开启' : '关闭'
+                  : '继承平台级'}
+              </div>
             </div>
-            <div className="text-sm font-medium text-gray-900">
-              {gateway.cacheReplayRate !== null && gateway.cacheReplayRate !== undefined
-                ? `${gateway.cacheReplayRate} 条/秒`
-                : '继承平台级'}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-gray-900">保存期限</div>
+                <div className="text-xs text-gray-500 mt-1">缓存数据最长保留时间</div>
+              </div>
+              <div className="text-sm font-medium text-gray-900">
+                {gateway.cacheRetentionDays !== null && gateway.cacheRetentionDays !== undefined
+                  ? `${gateway.cacheRetentionDays} 天`
+                  : '继承平台级'}
+              </div>
             </div>
-          </div>
-          <div className="pt-3 border-t border-gray-100">
-            <div className="flex items-start gap-2 text-xs text-gray-500">
-              <i className="fas fa-info-circle text-gray-400 mt-0.5"></i>
-              <span>网关级配置优先级高于平台级配置，修改后将立即同步到网关。</span>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-gray-900">补发速率</div>
+                <div className="text-xs text-gray-500 mt-1">网络恢复后数据补发速度</div>
+              </div>
+              <div className="text-sm font-medium text-gray-900">
+                {gateway.cacheReplayRate !== null && gateway.cacheReplayRate !== undefined
+                  ? `${gateway.cacheReplayRate} 条/秒`
+                  : '继承平台级'}
+              </div>
+            </div>
+            <div className="pt-3 border-t border-gray-100">
+              <div className="flex items-start gap-2 text-xs text-gray-500">
+                <i className="fas fa-info-circle text-gray-400 mt-0.5"></i>
+                <span>网关级配置优先级高于平台级配置，修改后将立即同步到网关。</span>
+              </div>
             </div>
           </div>
         </div>
@@ -304,6 +377,52 @@ function GatewayDetail() {
         gateway={gateway}
         onSuccess={loadGateway}
       />
+
+      <TestResultModal
+        isOpen={isTestResultModalOpen}
+        onClose={() => {
+          setIsTestResultModalOpen(false)
+          setTestResults([])
+        }}
+        results={testResults}
+      />
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-[420px] p-6">
+            <div className="flex items-start gap-4 mb-5">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <i className="fas fa-exclamation-triangle text-red-500 text-lg"></i>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">确认删除网关</h3>
+                <p className="text-gray-500 text-sm mt-2">
+                  确定删除网关「{gateway?.name}」吗？
+                </p>
+                <p className="text-gray-500 text-sm mt-1">
+                  删除后将同时移除关联的设备实例、同步记录等数据，此操作不可撤销。
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={false}
+                className="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={false}
+                className="px-5 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

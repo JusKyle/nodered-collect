@@ -105,6 +105,18 @@ export const getGatewayById = async (id: string): Promise<Gateway | null> => {
   return repository.getGatewayById(id)
 }
 
+export const getGatewayDetailById = async (id: string) => {
+  return repository.getGatewayDetailById(id)
+}
+
+export const clearCache = async (id: string) => {
+  const existing = await repository.getGatewayById(id)
+  if (!existing) {
+    throw new GatewayError('GATEWAY_NOT_FOUND', '网关不存在')
+  }
+  return repository.clearCache(id)
+}
+
 export const updateGateway = async (
   id: string,
   dto: UpdateGatewayDto
@@ -133,11 +145,6 @@ export const deleteGateway = async (id: string): Promise<Gateway> => {
   const existing = await repository.getGatewayById(id)
   if (!existing) {
     throw new GatewayError('GATEWAY_NOT_FOUND', '网关不存在')
-  }
-
-  const instances = await prisma.deviceInstance.findMany({ where: { gatewayId: id } })
-  if (instances.length > 0) {
-    throw new GatewayError('GATEWAY_HAS_INSTANCES', '网关下存在设备实例，无法删除')
   }
 
   return repository.deleteGateway(id)

@@ -40,6 +40,12 @@ function PerformanceMonitor({ gatewayId }: PerformanceMonitorProps) {
 
   const latest = data.length > 0 ? data[data.length - 1] : null
 
+  const fieldMap: Record<string, keyof PerformancePoint> = {
+    CPU: 'cpuUsage',
+    Memory: 'memoryUsage',
+    Disk: 'diskUsage'
+  }
+
   const renderMiniChart = (
     values: (number | null)[],
     color: string,
@@ -77,14 +83,17 @@ function PerformanceMonitor({ gatewayId }: PerformanceMonitorProps) {
       ? `${pathData} L ${width - padding},${height - padding} L ${padding},${height - padding} Z`
       : ''
 
+    const fieldKey = fieldMap[label] || (label.toLowerCase() as keyof PerformancePoint)
+    const latestValue = latest && latest[fieldKey] !== null
+      ? `${(latest[fieldKey] as number).toFixed(1)}%`
+      : '-'
+
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-600">{label}</span>
           <span className="text-lg font-bold" style={{ color }}>
-            {latest && latest[label.toLowerCase() as keyof PerformancePoint] !== null
-              ? `${(latest[label.toLowerCase() as keyof PerformancePoint] as number).toFixed(1)}%`
-              : '-'}
+            {latestValue}
           </span>
         </div>
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-24">

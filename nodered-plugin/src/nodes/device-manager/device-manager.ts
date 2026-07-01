@@ -9,6 +9,9 @@ export class DeviceManagerNode {
   public name: string
   public platformUrl: string
   public registrationCode: string
+  public mqttUrl: string
+  public mqttUsername: string
+  public mqttPassword: string
   public gatewayId: string | null = null
 
   private heartbeatService: HeartbeatService
@@ -20,8 +23,15 @@ export class DeviceManagerNode {
     this.name = config.name
     this.platformUrl = config.platformUrl || DEFAULT_PLATFORM_URL
     this.registrationCode = config.registrationCode
+    this.mqttUrl = config.mqttUrl || 'mqtt://localhost:1883'
+    this.mqttUsername = config.mqttUsername || ''
+    this.mqttPassword = config.mqttPassword || ''
 
-    this.heartbeatService = new HeartbeatService(this.platformUrl)
+    this.heartbeatService = new HeartbeatService({
+      mqttUrl: this.mqttUrl,
+      mqttUsername: this.mqttUsername || undefined,
+      mqttPassword: this.mqttPassword || undefined
+    })
     this.configSyncService = new ConfigSyncService(this.platformUrl)
     this.registrationService = new RegistrationService(this.platformUrl)
   }

@@ -47,6 +47,7 @@ function CacheConfigModal({ isOpen, onClose, gateway, onSuccess }: CacheConfigMo
     if (isOpen && gateway) {
       loadPlatformConfig()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, gateway])
 
   const loadPlatformConfig = async () => {

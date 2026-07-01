@@ -14,6 +14,7 @@ interface GatewayStore {
   totalPages: number
   // 筛选
   filterName: string
+  filterAddress: string
   filterStatus: string
   fetchGateways: (query?: GatewayListQuery) => Promise<void>
   createGateway: (data: { name: string; address: string; port?: number }) => Promise<Gateway>
@@ -23,6 +24,7 @@ interface GatewayStore {
   testConnection: (data: { gatewayId?: string; address?: string; port?: number; adminToken?: string }) => Promise<TestConnectionResult>
   setPage: (page: number) => void
   setFilterName: (name: string) => void
+  setFilterAddress: (address: string) => void
   setFilterStatus: (status: string) => void
 }
 
@@ -35,6 +37,7 @@ export const useGatewayStore = create<GatewayStore>((set, get) => ({
   total: 0,
   totalPages: 0,
   filterName: '',
+  filterAddress: '',
   filterStatus: '',
 
   fetchGateways: async (query?: GatewayListQuery) => {
@@ -45,10 +48,12 @@ export const useGatewayStore = create<GatewayStore>((set, get) => ({
         page: query?.page ?? state.page,
         pageSize: query?.pageSize ?? state.pageSize,
         name: query?.name ?? state.filterName,
+        address: query?.address ?? state.filterAddress,
         status: query?.status as GatewayListQuery['status'] ?? undefined
       }
       // 清除空参数
       if (!params.name) delete params.name
+      if (!params.address) delete params.address
       if (!params.status) delete params.status
       const result = await gatewayApi.getAllGateways(params)
       set({
@@ -121,6 +126,8 @@ export const useGatewayStore = create<GatewayStore>((set, get) => ({
   setPage: (page) => set({ page }),
 
   setFilterName: (filterName) => set({ filterName, page: 1 }),
+
+  setFilterAddress: (filterAddress) => set({ filterAddress, page: 1 }),
 
   setFilterStatus: (filterStatus) => set({ filterStatus, page: 1 })
 }))

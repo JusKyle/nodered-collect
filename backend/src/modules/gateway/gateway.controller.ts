@@ -13,7 +13,7 @@ export const getAllGateways = async (req: Request, res: Response) => {
 
 export const getGatewayById = async (req: Request, res: Response) => {
   const { id } = req.params
-  const gateway = await service.getGatewayById(id)
+  const gateway = await service.getGatewayDetailById(id)
   if (!gateway) {
     return res.status(404).json({ message: 'Gateway not found' })
   }
@@ -51,8 +51,15 @@ export const updateGateway = async (req: Request, res: Response) => {
 
 export const deleteGateway = async (req: Request, res: Response) => {
   const { id } = req.params
-  const gateway = await service.deleteGateway(id)
-  res.json(gateway)
+  try {
+    const gateway = await service.deleteGateway(id)
+    res.json(gateway)
+  } catch (err: any) {
+    if (err.code === 'GATEWAY_NOT_FOUND') {
+      return res.status(404).json({ code: err.code, message: err.message })
+    }
+    return res.status(500).json({ code: 'INTERNAL_ERROR', message: err.message })
+  }
 }
 
 export const testConnection = async (req: Request, res: Response) => {
@@ -103,4 +110,17 @@ export const getPerformanceHistory = async (req: Request, res: Response) => {
   }
   const data = await service.getPerformanceHistory(validation.data)
   res.json(data)
+}
+
+export const clearCache = async (req: Request, res: Response) => {
+  const { id } = req.params
+  try {
+    const result = await service.clearCache(id)
+    res.json(result)
+  } catch (err: any) {
+    if (err.code === 'GATEWAY_NOT_FOUND') {
+      return res.status(404).json({ code: err.code, message: err.message })
+    }
+    return res.status(500).json({ code: 'INTERNAL_ERROR', message: err.message })
+  }
 }
