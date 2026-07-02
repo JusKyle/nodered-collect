@@ -43,6 +43,7 @@ export const undeployConfig = async (req: Request, res: Response) => {
 export const getSyncRecords = async (req: Request, res: Response) => {
   const params = {
     gatewayId: req.query.gatewayId as string,
+    deviceInstanceId: req.query.deviceInstanceId as string,
     status: req.query.status as string,
     type: req.query.type as string,
     startDate: req.query.startDate as string,
@@ -51,12 +52,12 @@ export const getSyncRecords = async (req: Request, res: Response) => {
     pageSize: parseInt(req.query.pageSize as string) || 20
   }
   const result = await service.getSyncRecords(params)
-  res.json(result)
+  res.json({ success: true, data: result })
 }
 
 export const getSyncRecordDetail = async (req: Request, res: Response) => {
   const { id } = req.params
   const record = await service.getSyncRecordDetail(id)
   if (!record) return res.status(404).json({ message: 'Record not found' })
-  res.json(record)
+  res.json({ success: true, data: record })
 }

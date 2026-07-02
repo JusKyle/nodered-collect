@@ -2,7 +2,6 @@ import { Outlet, Link, useLocation } from 'react-router-dom'
 
 const navItems = [
   { path: '/gateways', label: '采集网关', icon: 'fa-server' },
-  { path: '/registration-codes', label: '注册码', icon: 'fa-key' },
   { path: '/device-models', label: '设备模型', icon: 'fa-microchip' },
   { path: '/device-instances', label: '设备实例', icon: 'fa-cubes' },
   { path: '/sync', label: '配置记录', icon: 'fa-sync' },

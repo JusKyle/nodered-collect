@@ -96,16 +96,29 @@ export interface DeviceInstance {
 
 export interface SyncRecord {
   id: string
-  type: 'DEPLOY' | 'UNDEPLOY' | 'REDEPLOY' | 'HEARTBEAT' | 'COLLECT' | 'INIT'
+  type: 'DEPLOY' | 'UNDEPLOY' | 'REDEPLOY' | 'HEARTBEAT' | 'COLLECT' | 'INIT' | 'CONFIG_SYNC' | 'DATA_UPLOAD'
   gatewayId: string
   gateway?: { id: string; name: string }
-  deviceInstanceId?: string
-  deviceInstance?: { id: string; name: string }
+  gatewayName?: string | null
+  deviceInstanceId?: string | null
+  deviceInstance?: { id: string; name: string; deviceId?: string | null }
+  deviceName?: string | null
+  deviceId?: string | null
   status: 'SUCCESS' | 'FAILED' | 'PENDING' | 'RUNNING'
-  message?: string
+  message?: string | null
+  errorCode?: string | null
+  errorMessage?: string | null
   payload?: any
+  flowConfig?: any[]
+  flowNodes?: Array<{ id: string; type: string; name: string }>
+  configVersion?: number | null
+  deployedVersion?: number | null
+  flowName?: string | null
+  finishedAt?: string | null
+  durationMs?: number | null
   retryCount?: number
   operator?: string
+  operatorName?: string | null
   createdAt: string
 }
 

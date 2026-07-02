@@ -1148,8 +1148,49 @@ export const getSyncRecordsByGatewayId = async (gatewayId: string): Promise<Sync
   return repository.getSyncRecordsByGatewayId(gatewayId)
 }
 
+const getPayloadObject = (payload: any): Record<string, any> => {
+  return payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {}
+}
+
+const getFinishedAt = (record: any): Date | null => {
+  const payload = getPayloadObject(record.payload)
+  const rawFinishedAt = payload.finishedAt || payload.completedAt
+  return rawFinishedAt ? new Date(rawFinishedAt) : null
+}
+
+const getDurationMs = (record: any): number | null => {
+  const finishedAt = getFinishedAt(record)
+  if (!finishedAt) return null
+  return Math.max(0, finishedAt.getTime() - new Date(record.createdAt).getTime())
+}
+
+const mapSyncRecordListItem = (record: any) => {
+  const payload = getPayloadObject(record.payload)
+  return {
+    id: record.id,
+    type: record.type,
+    status: record.status,
+    gatewayId: record.gatewayId,
+    gatewayName: record.gateway?.name ?? null,
+    deviceInstanceId: record.deviceInstanceId,
+    deviceName: record.deviceInstance?.name ?? null,
+    deviceId: record.deviceInstance?.deviceId ?? null,
+    configVersion: payload.configVersion ?? null,
+    deployedVersion: payload.deployedVersion ?? null,
+    flowName: payload.flowName ?? null,
+    operatorName: payload.operatorName ?? payload.operator ?? '系统',
+    message: record.message,
+    errorCode: payload.errorCode ?? null,
+    errorMessage: payload.errorMessage ?? record.message ?? null,
+    createdAt: record.createdAt,
+    finishedAt: getFinishedAt(record),
+    durationMs: getDurationMs(record)
+  }
+}
+
 export const getSyncRecords = async (params: {
   gatewayId?: string
+  deviceInstanceId?: string
   status?: string
   type?: string
   startDate?: string
@@ -1157,8 +1198,9 @@ export const getSyncRecords = async (params: {
   page: number
   pageSize: number
 }) => {
-  return repository.getSyncRecordsPaginated({
+  const { records, total } = await repository.getSyncRecordsPaginated({
     gatewayId: params.gatewayId,
+    deviceInstanceId: params.deviceInstanceId,
     status: params.status as SyncStatus | undefined,
     type: params.type as SyncType | undefined,
     startDate: params.startDate ? new Date(params.startDate) : undefined,
@@ -1166,8 +1208,44 @@ export const getSyncRecords = async (params: {
     page: params.page,
     pageSize: params.pageSize
   })
+
+  return {
+    list: records.map(mapSyncRecordListItem),
+    total,
+    page: params.page,
+    pageSize: params.pageSize,
+    totalPages: Math.ceil(total / params.pageSize)
+  }
 }
 
-export const getSyncRecordDetail = async (id: string): Promise<SyncRecord | null> => {
-  return repository.getSyncRecordById(id)
+const mapFlowNodes = (flowConfig: any[]) => {
+  return flowConfig.map((node) => ({
+    id: node.id,
+    type: node.type,
+    name: node.name || node.label || node.id
+  }))
+}
+
+const getFlowConfig = (payload: Record<string, any>): any[] => {
+  if (Array.isArray(payload.flowConfig)) return payload.flowConfig
+  if (Array.isArray(payload.flows)) return payload.flows
+  if (Array.isArray(payload.nodes)) return payload.nodes
+  return []
+}
+
+const mapSyncRecordDetail = (record: any) => {
+  const payload = getPayloadObject(record.payload)
+  const flowConfig = getFlowConfig(payload)
+  return {
+    ...mapSyncRecordListItem(record),
+    payload: record.payload,
+    flowConfig,
+    flowNodes: mapFlowNodes(flowConfig)
+  }
+}
+
+export const getSyncRecordDetail = async (id: string) => {
+  const record = await repository.getSyncRecordById(id)
+  if (!record) return null
+  return mapSyncRecordDetail(record)
 }

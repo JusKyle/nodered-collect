@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { useSyncStore } from '../../stores/sync.store'
 import { useGatewayStore } from '../../stores/gateway.store'
 import DispatchLogDetailModal from './DispatchLogDetailModal'
+import * as syncApi from '../../api/sync.api'
 import type { SyncRecord } from '../../types'
 
 function SyncRecords() {
   const [selectedRecord, setSelectedRecord] = useState<SyncRecord | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
   
   const [searchInstanceName, setSearchInstanceName] = useState('')
   const [searchDeviceId, setSearchDeviceId] = useState('')
@@ -60,9 +62,16 @@ function SyncRecords() {
     fetchRecords()
   }
 
-  const handleViewDetail = (record: SyncRecord) => {
+  const handleViewDetail = async (record: SyncRecord) => {
     setSelectedRecord(record)
     setIsModalOpen(true)
+    setDetailLoading(true)
+    try {
+      const detail = await syncApi.getSyncRecordById(record.id)
+      setSelectedRecord(detail)
+    } finally {
+      setDetailLoading(false)
+    }
   }
 
   const handleCloseModal = () => {
@@ -103,15 +112,15 @@ function SyncRecords() {
   }
 
   const filteredRecords = records.filter((record) => {
-    const instanceMatch = searchInstanceName === '' || 
-      (record.deviceInstance?.name || '').toLowerCase().includes(searchInstanceName.toLowerCase())
-    const deviceIdMatch = searchDeviceId === '' || 
-      (record.deviceInstanceId || '').toLowerCase().includes(searchDeviceId.toLowerCase())
+    const instanceName = record.deviceName || record.deviceInstance?.name || ''
+    const deviceId = record.deviceId || record.deviceInstance?.deviceId || record.deviceInstanceId || ''
+    const instanceMatch = searchInstanceName === '' || instanceName.toLowerCase().includes(searchInstanceName.toLowerCase())
+    const deviceIdMatch = searchDeviceId === '' || deviceId.toLowerCase().includes(searchDeviceId.toLowerCase())
     return instanceMatch && deviceIdMatch
   })
 
   const totalPages = Math.ceil(pagination.total / pagination.pageSize)
-  const pageSizeOptions = [10, 20, 50]
+  const pageSizeOptions = [10, 20, 50, 100]
 
   return (
     <div>
@@ -185,6 +194,7 @@ function SyncRecords() {
               <option value="SUCCESS">成功</option>
               <option value="FAILED">失败</option>
               <option value="PENDING">待处理</option>
+              <option value="RUNNING">进行中</option>
             </select>
           </div>
           <div>
@@ -271,26 +281,26 @@ function SyncRecords() {
             {!loading && filteredRecords.map((record) => (
               <tr key={record.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-4">
-                  {record.deviceInstance?.name ? (
+                  {record.deviceName || record.deviceInstance?.name ? (
                     <button
                       onClick={() => handleViewDetail(record)}
                       className="text-primary-500 font-semibold text-sm hover:underline"
                     >
-                      {record.deviceInstance.name}
+                      {record.deviceName || record.deviceInstance?.name}
                     </button>
                   ) : (
                     <span className="text-gray-400 text-sm">-</span>
                   )}
                 </td>
                 <td className="px-4 py-4 text-gray-600 text-sm font-mono">
-                  {record.deviceInstanceId || <span className="text-gray-400">-</span>}
+                  {record.deviceId || record.deviceInstance?.deviceId || record.deviceInstanceId || <span className="text-gray-400">-</span>}
                 </td>
                 <td className="px-4 py-4">
                   <button
                     onClick={() => {}}
                     className="text-primary-500 text-sm hover:underline"
                   >
-                    {record.gateway?.name || record.gatewayId}
+                    {record.gatewayName || record.gateway?.name || record.gatewayId}
                   </button>
                 </td>
                 <td className="px-4 py-4">
@@ -301,8 +311,8 @@ function SyncRecords() {
                 </td>
                 <td className="px-4 py-4">
                   {record.status === 'FAILED' ? (
-                    <span className="text-red-500 text-sm truncate max-w-[150px] block" title={record.message}>
-                      {record.message || '-'}
+                    <span className="text-red-500 text-sm truncate max-w-[150px] block" title={record.errorMessage || record.message || undefined}>
+                      {record.errorMessage || record.message || '-'}
                     </span>
                   ) : (
                     <span className="text-gray-400 text-sm">-</span>
@@ -312,7 +322,7 @@ function SyncRecords() {
                   {formatDate(record.createdAt)}
                 </td>
                 <td className="px-4 py-4 text-gray-600 text-sm">
-                  {record.operator || '系统'}
+                  {record.operatorName || record.operator || '系统'}
                 </td>
                 <td className="px-4 py-4">
                   <button
@@ -379,6 +389,7 @@ function SyncRecords() {
         <DispatchLogDetailModal
           syncRecord={selectedRecord}
           isOpen={isModalOpen}
+          loading={detailLoading}
           onClose={handleCloseModal}
         />
       )}

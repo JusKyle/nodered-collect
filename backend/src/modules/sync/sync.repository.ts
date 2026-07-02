@@ -50,7 +50,7 @@ export const updateSyncRecordStatus = async (
   })
 }
 
-export const getSyncRecordsPaginated = async (params: {
+export interface SyncRecordListParams {
   gatewayId?: string
   deviceInstanceId?: string
   status?: SyncStatus
@@ -59,7 +59,11 @@ export const getSyncRecordsPaginated = async (params: {
   endDate?: Date
   page: number
   pageSize: number
-}): Promise<{ records: SyncRecord[]; total: number }> => {
+}
+
+export const getSyncRecordsPaginated = async (
+  params: SyncRecordListParams
+): Promise<{ records: SyncRecord[]; total: number }> => {
   const where: any = {}
   if (params.gatewayId) where.gatewayId = params.gatewayId
   if (params.deviceInstanceId) where.deviceInstanceId = params.deviceInstanceId

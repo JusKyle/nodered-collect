@@ -14,14 +14,23 @@ export const getSyncRecords = async (params: {
   endDate?: string
   page?: number
   pageSize?: number
-}): Promise<{ records: SyncRecord[]; pagination: { total: number; page: number; pageSize: number } }> => {
+}): Promise<{ records: SyncRecord[]; pagination: { total: number; page: number; pageSize: number; totalPages?: number } }> => {
   const response = await api.get('/sync/records', { params })
-  return response.data
+  const data = response.data?.data || response.data
+  return {
+    records: data.list || data.records || [],
+    pagination: {
+      total: data.total || 0,
+      page: data.page || params.page || 1,
+      pageSize: data.pageSize || params.pageSize || 20,
+      totalPages: data.totalPages
+    }
+  }
 }
 
 export const getSyncRecordById = async (id: string): Promise<SyncRecord> => {
   const response = await api.get(`/sync/records/${id}`)
-  return response.data
+  return response.data?.data || response.data
 }
 
 export const getSyncRecordsByGatewayId = async (gatewayId: string): Promise<SyncRecord[]> => {

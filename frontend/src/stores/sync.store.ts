@@ -4,6 +4,7 @@ import * as syncApi from '../api/sync.api'
 
 interface SyncQueryParams {
   gatewayId?: string
+  deviceInstanceId?: string
   status?: string
   type?: string
   startDate?: string
@@ -33,13 +34,13 @@ interface SyncStore {
 
 const defaultQueryParams: SyncQueryParams = {
   page: 1,
-  pageSize: 10
+  pageSize: 20
 }
 
 const defaultPagination: Pagination = {
   total: 0,
   page: 1,
-  pageSize: 10
+  pageSize: 20
 }
 
 export const useSyncStore = create<SyncStore>((set, get) => ({

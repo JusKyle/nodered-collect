@@ -8,7 +8,6 @@ import DeviceModelDetail from './pages/device-model/DeviceModelDetail'
 import DeviceInstanceList from './pages/device-instance/DeviceInstanceList'
 import DeviceInstanceDetail from './pages/device-instance/Detail'
 import SyncRecords from './pages/sync/SyncRecords'
-import RegistrationCodeList from './pages/registration/RegistrationCodeList'
 import SystemConfigPage from './pages/system/SystemConfigPage'
 import { TOAST_EVENT, ToastEventDetail, ToastType } from './utils/toast'
 
@@ -56,7 +55,6 @@ function App() {
           <Route path="device-instances" element={<DeviceInstanceList />} />
           <Route path="device-instance/:id" element={<DeviceInstanceDetail />} />
           <Route path="sync" element={<SyncRecords />} />
-          <Route path="registration-codes" element={<RegistrationCodeList />} />
           <Route path="system-config" element={<SystemConfigPage />} />
         </Route>
       </Routes>
