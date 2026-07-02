@@ -4,7 +4,7 @@ import { prisma } from '../../config/db'
 import * as repository from './sync.repository'
 import { CreateSyncRecordDto, DeployConfigDto } from './sync.dto'
 import { getGatewayById } from '../gateway/gateway.service'
-import { getDeviceInstanceById, updateDeviceInstance } from '../device-instance/device-instance.service'
+import { getDeviceInstanceById, updateDeviceInstanceStatus } from '../device-instance/device-instance.service'
 import { markGatewayTokenExpired } from '../../services/heartbeat.service'
 import { getRedisClient } from '../../config/redis'
 
@@ -239,10 +239,11 @@ return msg;
 
 export const generateDeviceFlowNodes = (instance: any): any[] => {
   const model = instance.model
-  const protocol = (model?.protocol || 's7').toLowerCase()
+  const protocol = (model?.protocol || 'S7').toUpperCase()
   const points = model?.points || []
   const customPoints = instance.config?.customPoints || []
   const allPoints = [...points, ...customPoints]
+  const commConfig = instance.commConfig || {}
 
   const baseId = instance.id.replace(/-/g, '')
   const flowId = `device-flow-${baseId}`
@@ -259,7 +260,6 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
 
   const mqttOutId = baseId + '-mqtt-out'
   const debugId = baseId + '-debug'
-  const intervalId = baseId + '-interval'
   const brokerId = 'mqtt-broker-' + (instance.gatewayId || '').replace(/-/g, '')
 
   nodes.push({
@@ -292,77 +292,533 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
   })
   y += 80
 
-  nodes.push({
-    id: intervalId,
-    type: 'inject',
-    z: flowId,
-    name: 'collect-trigger',
-    payload: '',
-    payloadType: 'none',
-    repeat: '1',
-    crontab: '',
-    once: false,
-    onceDelay: 0.1,
-    x: 100,
-    y,
-    wires: [[]]
-  })
-  y += 80
+  const buildPointMapCode = (): string => {
+    const pointEntries = allPoints.map((p: any) => {
+      const tag = p.tag || p.code || p.id
+      return `"${tag}": { name: "${p.name || tag}", dataType: "${p.dataType || 'FLOAT32'}", unit: "${p.unit || ''}" }`
+    }).join(',\n    ')
+    return `const pointMap = {\n    ${pointEntries}\n  };\n  return pointMap;`
+  }
 
-  let protocolOutIds: string[] = []
+  if (protocol === 'MODBUS_TCP' || protocol === 'MODBUS_RTU') {
+    const modbusClientId = 'modbus-client-' + baseId
+    const modbusReadId = baseId + '-modbus-read'
+    const parseFuncId = baseId + '-parse-func'
 
-  if (protocol === 's7') {
-    const s7NodeId = baseId + '-s7'
+    const isTcp = protocol === 'MODBUS_TCP'
     nodes.push({
-      id: s7NodeId,
-      type: 'S7 in',
-      z: flowId,
-      name: 's7-read',
-      endpoint: 'endpoint-' + baseId,
-      address: instance.config?.deviceAddress || '',
-      mode: 'single',
-      x: 350,
-      y,
-      wires: [[mqttOutId, debugId]]
+      id: modbusClientId,
+      type: 'modbus-client',
+      name: '',
+      clienttype: isTcp ? 'tcp' : 'serial',
+      bufferCommands: true,
+      stateLogEnabled: false,
+      queueLogEnabled: false,
+      failureLogEnabled: true,
+      tcpHost: commConfig.ip || '127.0.0.1',
+      tcpPort: commConfig.port || 502,
+      tcpType: 'DEFAULT',
+      serialPort: '/dev/ttyUSB',
+      serialType: 'RTU-BUFFERD',
+      serialBaudrate: 9600,
+      serialDatabits: 8,
+      serialStopbits: 1,
+      serialParity: 'none',
+      serialConnectionDelay: 100,
+      serialAsciiResponseStartDelimiter: '0x3A',
+      unit_id: commConfig.slaveId || 1,
+      commandDelay: 1,
+      clientTimeout: 1000,
+      reconnectOnTimeout: true,
+      reconnectTimeout: 2000,
+      parallelUnitIdsAllowed: true,
+      showErrors: false,
+      showWarnings: true,
+      showLogs: true,
     })
-    protocolOutIds = [intervalId]
-    nodes.find((node) => node.id === intervalId).wires = [[s7NodeId]]
-  } else if (protocol === 'modbus') {
-    const modbusNodeId = baseId + '-modbus'
+
+    const holdingRegisters = allPoints.filter((p: any) => {
+      const regType = p.config?.registerType || p.registerType || 'Holding'
+      return regType === 'Holding' || regType === 'holding'
+    })
+    const inputRegisters = allPoints.filter((p: any) => {
+      const regType = p.config?.registerType || p.registerType || 'Holding'
+      return regType === 'Input' || regType === 'input'
+    })
+    const coils = allPoints.filter((p: any) => {
+      const regType = p.config?.registerType || p.registerType || 'Holding'
+      return regType === 'Coil' || regType === 'coil'
+    })
+    const discreteInputs = allPoints.filter((p: any) => {
+      const regType = p.config?.registerType || p.registerType || 'Holding'
+      return regType === 'Discrete' || regType === 'discrete'
+    })
+
+    const primaryList = holdingRegisters.length > 0 ? holdingRegisters
+      : inputRegisters.length > 0 ? inputRegisters
+      : coils.length > 0 ? coils
+      : discreteInputs.length > 0 ? discreteInputs
+      : allPoints
+
+    const fc = holdingRegisters.length > 0 ? 'FC3'
+      : inputRegisters.length > 0 ? 'FC4'
+      : coils.length > 0 ? 'FC1'
+      : discreteInputs.length > 0 ? 'FC2'
+      : 'FC3'
+
+    const firstAddr = primaryList[0]?.config?.startAddress
+      ?? primaryList[0]?.address
+      ?? 0
+    const quantity = primaryList.length > 0 ? primaryList.length : 10
+
     nodes.push({
-      id: modbusNodeId,
+      id: modbusReadId,
       type: 'modbus-read',
       z: flowId,
       name: 'modbus-read',
-      server: 'server-' + baseId,
-      dataType: 'Coils',
-      address: '0',
-      quantity: String(allPoints.length || 10),
-      rate: '1',
+      topic: '',
+      showStatusActivities: true,
+      logIOActivities: false,
+      showErrors: true,
+      showWarnings: true,
+      server: modbusClientId,
+      unitid: String(commConfig.slaveId || 1),
+      dataType: 'HoldingRegister',
+      adr: String(firstAddr),
+      quantity: String(quantity),
+      rate: '1000',
+      rateUnit: 'ms',
+      delayOnStart: false,
+      enableDeformedMessages: false,
+      startDelayTime: '2',
+      useIOFile: false,
+      ioFile: '',
+      useIOForPayload: false,
+      emptyMsgOnFail: false,
       x: 350,
+      y,
+      wires: [[]]
+    })
+    y += 80
+
+    const mapCode = buildPointMapCode()
+    const parseCode = `
+const pointMap = global.get('pointMap_${baseId}') || (() => {
+  ${mapCode.replace(/^ {2}/m, '')}
+})();
+const values = msg.payload || [];
+const result = { deviceId: "${instance.id}", timestamp: Date.now(), values: {} };
+const points = Object.entries(pointMap);
+points.forEach(([tag, info], idx) => {
+  const rawVal = values[idx] ?? 0;
+  let val = rawVal;
+  if (info.dataType === 'FLOAT32' || info.dataType === 'FLOAT64') {
+    val = typeof rawVal === 'number' ? rawVal : parseFloat(rawVal) || 0;
+  } else if (info.dataType === 'BOOL') {
+    val = rawVal ? 1 : 0;
+  } else {
+    val = parseInt(rawVal) || 0;
+  }
+  result.values[tag] = { value: val, quality: 0, timestamp: result.timestamp };
+});
+msg.payload = JSON.stringify(result);
+return msg;
+`
+
+    nodes.push({
+      id: parseFuncId,
+      type: 'function',
+      z: flowId,
+      name: 'parse-data',
+      func: parseCode,
+      outputs: 1,
+      noerr: 0,
+      initialize: '',
+      finalize: '',
+      libs: [],
+      x: 620,
       y,
       wires: [[mqttOutId, debugId]]
     })
-    protocolOutIds = [intervalId]
-    nodes.find((node) => node.id === intervalId).wires = [[modbusNodeId]]
-  } else if (protocol === 'opcua') {
-    const opcuaNodeId = baseId + '-opcua'
+
+    const intervalId = baseId + '-interval'
     nodes.push({
-      id: opcuaNodeId,
-      type: 'OpcUa-Client',
+      id: intervalId,
+      type: 'inject',
       z: flowId,
-      name: 'opcua-read',
-      endpoint: 'endpoint-' + baseId,
+      name: 'collect-trigger',
+      payload: '',
+      payloadType: 'none',
+      repeat: '1',
+      crontab: '',
+      once: false,
+      onceDelay: 0.1,
+      x: 100,
+      y,
+      wires: [[modbusReadId]]
+    })
+    y += 80
+
+    const modbusNode = nodes.find((n) => n.id === modbusReadId)
+    if (modbusNode) {
+      modbusNode.wires = [[parseFuncId]]
+    }
+  } else if (protocol === 'S7') {
+    const s7EndpointId = 's7-endpoint-' + baseId
+    const s7InId = baseId + '-s7-in'
+    const parseFuncId = baseId + '-parse-func'
+
+    nodes.push({
+      id: s7EndpointId,
+      type: 's7 endpoint',
+      endpoint: commConfig.ip || '127.0.0.1',
+      port: String(commConfig.port || 102),
+      rack: '0',
+      slot: '1',
+      connType: 'PG',
+      adapterName: '',
+      vendorName: '',
+      modelName: '',
+      connectionTimeout: '1000',
+      autoReconnect: true,
+      reconnectInterval: '1000',
+      keepAlive: true,
+      keepAliveInterval: '3000',
+      label: '',
+    })
+
+    const s7Vars = allPoints.map((p: any, idx: number) => ({
+      name: p.tag || p.code || `var${idx}`,
+      value: p.config?.address || p.address || 'DB1.DBD0',
+    }))
+
+    nodes.push({
+      id: s7InId,
+      type: 's7 in',
+      z: flowId,
+      name: 's7-read',
+      endpoint: s7EndpointId,
+      mode: 'all',
+      variable: '',
+      diff: false,
+      x: 350,
+      y,
+      wires: [[]]
+    })
+    y += 80
+
+    const mapCode = buildPointMapCode()
+    const parseCode = `
+const pointMap = global.get('pointMap_${baseId}') || (() => {
+  ${mapCode.replace(/^ {2}/m, '')}
+})();
+const payload = msg.payload || {};
+const result = { deviceId: "${instance.id}", timestamp: Date.now(), values: {} };
+Object.entries(pointMap).forEach(([tag, info]) => {
+  const rawVal = payload[tag];
+  let val = rawVal;
+  if (info.dataType === 'BOOL') {
+    val = rawVal ? 1 : 0;
+  } else if (info.dataType && info.dataType.startsWith('FLOAT')) {
+    val = parseFloat(rawVal) || 0;
+  } else {
+    val = parseInt(rawVal) || 0;
+  }
+  result.values[tag] = { value: val, quality: 0, timestamp: result.timestamp };
+});
+msg.payload = JSON.stringify(result);
+return msg;
+`
+
+    nodes.push({
+      id: parseFuncId,
+      type: 'function',
+      z: flowId,
+      name: 'parse-data',
+      func: parseCode,
+      outputs: 1,
+      noerr: 0,
+      initialize: '',
+      finalize: '',
+      libs: [],
+      x: 620,
+      y,
+      wires: [[mqttOutId, debugId]]
+    })
+
+    const intervalId = baseId + '-interval'
+    nodes.push({
+      id: intervalId,
+      type: 'inject',
+      z: flowId,
+      name: 'collect-trigger',
+      payload: '',
+      payloadType: 'none',
+      repeat: '1',
+      crontab: '',
+      once: false,
+      onceDelay: 0.1,
+      x: 100,
+      y,
+      wires: [[s7InId]]
+    })
+    y += 80
+
+    const s7Node = nodes.find((n) => n.id === s7InId)
+    if (s7Node) {
+      s7Node.wires = [[parseFuncId]]
+    }
+  } else if (protocol === 'OPC_UA') {
+    const opcuaClientId = 'opcua-client-' + baseId
+    const opcuaInId = baseId + '-opcua-in'
+    const parseFuncId = baseId + '-parse-func'
+
+    nodes.push({
+      id: opcuaClientId,
+      type: 'OpcUa-Client',
+      endpoint: commConfig.endpoint || 'opc.tcp://localhost:4840',
       securityPolicy: 'None',
       securityMode: 'None',
+      name: '',
+    })
+
+    nodes.push({
+      id: opcuaInId,
+      type: 'OpcUa-In',
+      z: flowId,
+      name: 'opcua-read',
+      nodeId: allPoints.map((p: any) => p.config?.nodeId || p.nodeId || 'ns=2;s=var1').join(';'),
+      timeFormat: '',
+      valueFormat: '0',
       x: 350,
+      y,
+      wires: [[]]
+    })
+    y += 80
+
+    const mapCode = buildPointMapCode()
+    const parseCode = `
+const pointMap = global.get('pointMap_${baseId}') || (() => {
+  ${mapCode.replace(/^ {2}/m, '')}
+})();
+const payload = msg.payload;
+const result = { deviceId: "${instance.id}", timestamp: Date.now(), values: {} };
+const tags = Object.keys(pointMap);
+const val = typeof payload === 'object' && payload !== null ? payload.value : payload;
+if (tags.length > 0) {
+  result.values[tags[0]] = { value: val ?? 0, quality: 0, timestamp: result.timestamp };
+}
+msg.payload = JSON.stringify(result);
+return msg;
+`
+
+    nodes.push({
+      id: parseFuncId,
+      type: 'function',
+      z: flowId,
+      name: 'parse-data',
+      func: parseCode,
+      outputs: 1,
+      noerr: 0,
+      initialize: '',
+      finalize: '',
+      libs: [],
+      x: 620,
       y,
       wires: [[mqttOutId, debugId]]
     })
-    protocolOutIds = [intervalId]
-    nodes.find((node) => node.id === intervalId).wires = [[opcuaNodeId]]
+
+    const intervalId = baseId + '-interval'
+    nodes.push({
+      id: intervalId,
+      type: 'inject',
+      z: flowId,
+      name: 'collect-trigger',
+      payload: '',
+      payloadType: 'none',
+      repeat: '1',
+      crontab: '',
+      once: false,
+      onceDelay: 0.1,
+      x: 100,
+      y,
+      wires: [[opcuaInId]]
+    })
+    y += 80
+
+    const opcuaNode = nodes.find((n) => n.id === opcuaInId)
+    if (opcuaNode) {
+      opcuaNode.wires = [[parseFuncId]]
+    }
+  } else if (protocol === 'MQTT') {
+    const mqttInId = baseId + '-mqtt-in'
+    const parseFuncId = baseId + '-parse-func'
+    const mqttBrokerId = 'device-mqtt-broker-' + baseId
+
+    nodes.push({
+      id: mqttBrokerId,
+      type: 'mqtt-broker',
+      broker: commConfig.broker || 'localhost',
+      port: String(commConfig.port || 1883),
+      clientid: '',
+      autoConnect: true,
+      usetls: false,
+      usews: false,
+      protocolVersion: '4',
+      keepalive: '60',
+      cleanness: true,
+      reconnectPeriod: '15000',
+      sessionExpiry: '3600',
+    })
+
+    nodes.push({
+      id: mqttInId,
+      type: 'mqtt in',
+      z: flowId,
+      name: 'device-mqtt-in',
+      topic: commConfig.topic || 'device/data',
+      qos: '0',
+      datatype: 'json',
+      broker: mqttBrokerId,
+      nl: false,
+      rap: false,
+      rh: '0',
+      inputs: 0,
+      x: 350,
+      y,
+      wires: [[]]
+    })
+    y += 80
+
+    const mapCode = buildPointMapCode()
+    const parseCode = `
+const pointMap = global.get('pointMap_${baseId}') || (() => {
+  ${mapCode.replace(/^ {2}/m, '')}
+})();
+const payload = msg.payload || {};
+const result = { deviceId: "${instance.id}", timestamp: Date.now(), values: {} };
+Object.entries(pointMap).forEach(([tag, info]) => {
+  const path = info.config?.fieldPath || tag;
+  const segments = path.split('.');
+  let rawVal = payload;
+  for (const seg of segments) {
+    if (rawVal == null) break;
+    rawVal = rawVal[seg];
+  }
+  if (rawVal !== undefined) {
+    let val = rawVal;
+    if (info.dataType === 'BOOL') {
+      val = rawVal ? 1 : 0;
+    } else if (info.dataType && info.dataType.startsWith('FLOAT')) {
+      val = parseFloat(rawVal) || 0;
+    } else {
+      val = parseInt(rawVal) || 0;
+    }
+    result.values[tag] = { value: val, quality: 0, timestamp: result.timestamp };
+  }
+});
+msg.payload = JSON.stringify(result);
+return msg;
+`
+
+    nodes.push({
+      id: parseFuncId,
+      type: 'function',
+      z: flowId,
+      name: 'parse-data',
+      func: parseCode,
+      outputs: 1,
+      noerr: 0,
+      initialize: '',
+      finalize: '',
+      libs: [],
+      x: 620,
+      y,
+      wires: [[mqttOutId, debugId]]
+    })
+
+    const mqttInNode = nodes.find((n) => n.id === mqttInId)
+    if (mqttInNode) {
+      mqttInNode.wires = [[parseFuncId]]
+    }
+  } else if (protocol === 'TCP') {
+    const tcpInId = baseId + '-tcp-in'
+    const parseFuncId = baseId + '-parse-func'
+
+    nodes.push({
+      id: tcpInId,
+      type: 'tcp in',
+      z: flowId,
+      name: 'tcp-in',
+      server: commConfig.ip || '127.0.0.1',
+      port: String(commConfig.port || 2000),
+      datamode: 'stream',
+      datatype: 'buffer',
+      newline: '',
+      topic: 'tcp-data',
+      base: '10',
+      x: 350,
+      y,
+      wires: [[]]
+    })
+    y += 80
+
+    const mapCode = buildPointMapCode()
+    const parseCode = `
+const pointMap = global.get('pointMap_${baseId}') || (() => {
+  ${mapCode.replace(/^ {2}/m, '')}
+})();
+const payload = msg.payload || '';
+const result = { deviceId: "${instance.id}", timestamp: Date.now(), values: {} };
+const rawStr = typeof payload === 'string' ? payload : payload.toString ? payload.toString() : '';
+const keyValPattern = /([a-zA-Z_][a-zA-Z0-9_]*)\\s*[:=]\\s*([-+]?[\\d.]+)/g;
+let match;
+const parsed = {};
+while ((match = keyValPattern.exec(rawStr)) !== null) {
+  parsed[match[1]] = parseFloat(match[2]);
+}
+Object.entries(pointMap).forEach(([tag, info]) => {
+  const rawVal = parsed[tag];
+  if (rawVal !== undefined) {
+    let val = rawVal;
+    if (info.dataType === 'BOOL') {
+      val = rawVal ? 1 : 0;
+    } else if (info.dataType && info.dataType.startsWith('FLOAT')) {
+      val = parseFloat(rawVal) || 0;
+    } else {
+      val = parseInt(rawVal) || 0;
+    }
+    result.values[tag] = { value: val, quality: 0, timestamp: result.timestamp };
+  }
+});
+msg.payload = JSON.stringify(result);
+return msg;
+`
+
+    nodes.push({
+      id: parseFuncId,
+      type: 'function',
+      z: flowId,
+      name: 'parse-data',
+      func: parseCode,
+      outputs: 1,
+      noerr: 0,
+      initialize: '',
+      finalize: '',
+      libs: [],
+      x: 620,
+      y,
+      wires: [[mqttOutId, debugId]]
+    })
+
+    const tcpNode = nodes.find((n) => n.id === tcpInId)
+    if (tcpNode) {
+      tcpNode.wires = [[parseFuncId]]
+    }
   } else {
     const httpNodeId = baseId + '-http'
+    const parseFuncId = baseId + '-parse-func'
+
     nodes.push({
       id: httpNodeId,
       type: 'http request',
@@ -370,13 +826,76 @@ export const generateDeviceFlowNodes = (instance: any): any[] => {
       name: 'http-read',
       method: 'GET',
       ret: 'obj',
-      url: instance.config?.deviceAddress || '',
+      url: commConfig.url || 'http://localhost/data',
       x: 350,
+      y,
+      wires: [[]]
+    })
+    y += 80
+
+    const mapCode = buildPointMapCode()
+    const parseCode = `
+const pointMap = global.get('pointMap_${baseId}') || (() => {
+  ${mapCode.replace(/^ {2}/m, '')}
+})();
+const payload = msg.payload || {};
+const result = { deviceId: "${instance.id}", timestamp: Date.now(), values: {} };
+Object.entries(pointMap).forEach(([tag, info]) => {
+  const rawVal = payload[tag];
+  if (rawVal !== undefined) {
+    let val = rawVal;
+    if (info.dataType === 'BOOL') {
+      val = rawVal ? 1 : 0;
+    } else if (info.dataType && info.dataType.startsWith('FLOAT')) {
+      val = parseFloat(rawVal) || 0;
+    } else {
+      val = parseInt(rawVal) || 0;
+    }
+    result.values[tag] = { value: val, quality: 0, timestamp: result.timestamp };
+  }
+});
+msg.payload = JSON.stringify(result);
+return msg;
+`
+
+    nodes.push({
+      id: parseFuncId,
+      type: 'function',
+      z: flowId,
+      name: 'parse-data',
+      func: parseCode,
+      outputs: 1,
+      noerr: 0,
+      initialize: '',
+      finalize: '',
+      libs: [],
+      x: 620,
       y,
       wires: [[mqttOutId, debugId]]
     })
-    protocolOutIds = [intervalId]
-    nodes.find((node) => node.id === intervalId).wires = [[httpNodeId]]
+
+    const intervalId = baseId + '-interval'
+    nodes.push({
+      id: intervalId,
+      type: 'inject',
+      z: flowId,
+      name: 'collect-trigger',
+      payload: '',
+      payloadType: 'none',
+      repeat: '1',
+      crontab: '',
+      once: false,
+      onceDelay: 0.1,
+      x: 100,
+      y,
+      wires: [[httpNodeId]]
+    })
+    y += 80
+
+    const httpNode = nodes.find((n) => n.id === httpNodeId)
+    if (httpNode) {
+      httpNode.wires = [[parseFuncId]]
+    }
   }
 
   return nodes
@@ -393,10 +912,33 @@ export const deployGatewayBaseFlow = async (gateway: any): Promise<SyncRecord> =
   try {
     const baseFlowNodes = generateGatewayBaseFlow(gateway)
     const nodeRedUrl = 'http://' + gateway.address + ':' + gateway.port + '/flows'
+    const gwId = gateway.id.replace(/-/g, '')
+
+    let currentFlows: any[] = []
+    let currentEtag = ''
+    try {
+      const resp = await axios.get(nodeRedUrl, { timeout: 15000 })
+      currentFlows = Array.isArray(resp.data) ? resp.data : []
+      currentEtag = resp.headers['etag'] || ''
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        await markGatewayTokenExpired(gateway.id)
+        throw new Error('网关 Token 已失效')
+      }
+      currentFlows = []
+    }
+
+    currentFlows = currentFlows.filter((n: any) => !n.id?.includes('hb-inject-' + gwId) && !n.id?.includes('hb-func-' + gwId) && !n.id?.includes('hb-out-' + gwId) && !(n.id === 'gateway-flow-' + gwId) && !(n.id === 'mqtt-broker-' + gwId))
+
+    const finalFlows = [...currentFlows, ...baseFlowNodes]
 
     try {
-      await axios.post(nodeRedUrl, baseFlowNodes, {
-        headers: { 'Content-Type': 'application/json' },
+      const postHeaders: any = { 'Content-Type': 'application/json' }
+      if (currentEtag) {
+        postHeaders['If-Match'] = currentEtag
+      }
+      await axios.post(nodeRedUrl, finalFlows, {
+        headers: postHeaders,
         timeout: 30000
       })
 
@@ -406,7 +948,7 @@ export const deployGatewayBaseFlow = async (gateway: any): Promise<SyncRecord> =
         deviceInstanceId: null as any,
         status: SyncStatus.SUCCESS,
         message: '网关基础流下发成功',
-        payload: { nodes: baseFlowNodes } as any
+        payload: { nodes: finalFlows } as any
       })
     } catch (error: any) {
       if (error.response?.status === 401) {
@@ -453,9 +995,11 @@ export const deployConfig = async (dto: DeployConfigDto): Promise<SyncRecord> =>
     const nodeRedUrl = 'http://' + gateway.address + ':' + gateway.port + '/flows'
 
     let currentFlows: any[] = []
+    let currentEtag = ''
     try {
       const resp = await axios.get(nodeRedUrl, { timeout: 15000 })
       currentFlows = Array.isArray(resp.data) ? resp.data : []
+      currentEtag = resp.headers['etag'] || ''
     } catch (err: any) {
       if (err.response?.status === 401) {
         await markGatewayTokenExpired(gatewayId)
@@ -472,18 +1016,22 @@ export const deployConfig = async (dto: DeployConfigDto): Promise<SyncRecord> =>
     }
 
     const baseId = deviceInstanceId.replace(/-/g, '')
-    currentFlows = currentFlows.filter((n: any) => !n.id?.startsWith(baseId))
+    currentFlows = currentFlows.filter((n: any) => !n.id?.includes(baseId))
 
     const newNodes = generateDeviceFlowNodes(instance)
     const finalFlows = [...currentFlows, ...newNodes]
 
     try {
+      const postHeaders: any = { 'Content-Type': 'application/json' }
+      if (currentEtag) {
+        postHeaders['If-Match'] = currentEtag
+      }
       await axios.post(nodeRedUrl, finalFlows, {
-        headers: { 'Content-Type': 'application/json' },
+        headers: postHeaders,
         timeout: 30000
       })
 
-      await updateDeviceInstance(deviceInstanceId, { status: DeviceStatus.RUNNING })
+      await updateDeviceInstanceStatus(deviceInstanceId, DeviceStatus.COLLECTING, new Date())
 
       return await repository.createSyncRecord({
         type: SyncType.DEPLOY,
@@ -496,6 +1044,9 @@ export const deployConfig = async (dto: DeployConfigDto): Promise<SyncRecord> =>
       if (error.response?.status === 401) {
         await markGatewayTokenExpired(gatewayId)
         throw new Error('网关 Token 已失效')
+      }
+      if (error.response?.status === 409) {
+        return await handleDeployRetry(deviceInstanceId, gatewayId, finalFlows, '版本冲突，重试中')
       }
       return await handleDeployRetry(deviceInstanceId, gatewayId, finalFlows, error.message)
     }
@@ -512,7 +1063,7 @@ const handleDeployRetry = async (
   attempt = 1
 ): Promise<SyncRecord> => {
   if (attempt > 3) {
-    await updateDeviceInstance(deviceInstanceId, { status: DeviceStatus.PENDING_SYNC })
+    await updateDeviceInstanceStatus(deviceInstanceId, DeviceStatus.OFFLINE)
     return repository.createSyncRecord({
       type: SyncType.DEPLOY,
       gatewayId,
@@ -546,15 +1097,20 @@ export const undeployConfig = async (dto: { deviceInstanceId: string; gatewayId:
   try {
     const response = await axios.get(nodeRedUrl, { timeout: 10000 })
     const currentFlows = response.data
+    const currentEtag = response.headers['etag'] || ''
     const baseId = deviceInstanceId.replace(/-/g, '')
-    const filteredFlows = currentFlows.filter((node: any) => !node.id?.startsWith(baseId))
+    const filteredFlows = currentFlows.filter((node: any) => !node.id?.includes(baseId))
 
+    const postHeaders: any = { 'Content-Type': 'application/json' }
+    if (currentEtag) {
+      postHeaders['If-Match'] = currentEtag
+    }
     await axios.post(nodeRedUrl, filteredFlows, {
-      headers: { 'Content-Type': 'application/json' },
+      headers: postHeaders,
       timeout: 10000
     })
 
-    await updateDeviceInstance(deviceInstanceId, { status: DeviceStatus.PENDING_SYNC })
+    await updateDeviceInstanceStatus(deviceInstanceId, DeviceStatus.OFFLINE)
 
     return repository.createSyncRecord({
       type: SyncType.UNDEPLOY,

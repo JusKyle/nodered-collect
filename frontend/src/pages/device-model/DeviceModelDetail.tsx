@@ -23,6 +23,7 @@ function DeviceModelDetail() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isCreatePointOpen, setIsCreatePointOpen] = useState(false)
   const [editingPoint, setEditingPoint] = useState<Point | null>(null)
+  const [editingPointIndex, setEditingPointIndex] = useState<number>(-1)
 
   const formatDate = (date: Date | string | null | undefined) => {
     if (!date) return '-'
@@ -87,17 +88,18 @@ function DeviceModelDetail() {
   }
 
   const handleUpdatePoint = async (data: Partial<Point>) => {
-    if (!id || !editingPoint?.id) return
-    await updatePoint(id, editingPoint.id, data)
+    if (!id || editingPointIndex < 0) return
+    await updatePoint(id, editingPointIndex, data)
     showToast('保存成功', 'success')
     setEditingPoint(null)
+    setEditingPointIndex(-1)
     await reloadAll()
   }
 
-  const handleDeletePoint = async (point: Point) => {
-    if (!id || !point.id) return
+  const handleDeletePoint = async (index: number, point: Point) => {
+    if (!id) return
     if (!window.confirm(`确定删除点位「${point.name}」吗？`)) return
-    await deletePoint(id, point.id)
+    await deletePoint(id, index)
     showToast('删除成功', 'success')
     await reloadAll()
   }
@@ -172,14 +174,14 @@ function DeviceModelDetail() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {points.length === 0 && <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-400">暂无点位，点击新增</td></tr>}
-              {points.map((point) => (
-                <tr key={point.id || point.tag} className="hover:bg-gray-50 transition-colors">
+              {points.map((point, index) => (
+                <tr key={index} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4"><div className="text-sm font-medium text-gray-900">{point.name}</div><div className="text-xs text-gray-400 mt-0.5">{point.tag || point.code}</div></td>
                   <td className="px-6 py-4 text-sm text-gray-600 font-mono">{point.address}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{point.dataType}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{getPointAccess(point)}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{point.unit || '-'}</td>
-                  <td className="px-6 py-4"><div className="flex items-center gap-3 text-sm"><button onClick={() => setEditingPoint(point)} className="text-primary-500 hover:text-indigo-800 font-medium">编辑</button><button onClick={() => handleDeletePoint(point)} className="text-red-500 hover:text-red-700 font-medium">删除</button></div></td>
+                  <td className="px-6 py-4"><div className="flex items-center gap-3 text-sm"><button onClick={() => { setEditingPoint(point); setEditingPointIndex(index) }} className="text-primary-500 hover:text-indigo-800 font-medium">编辑</button><button onClick={() => handleDeletePoint(index, point)} className="text-red-500 hover:text-red-700 font-medium">删除</button></div></td>
                 </tr>
               ))}
             </tbody>

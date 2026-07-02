@@ -114,11 +114,19 @@ model ModelVersion {
 model DeviceInstance {
   id              String         @id @default(cuid())
   name            String
+  description     String?
   modelId         String
-  gatewayId       String
-  nodeId          String
+  gatewayId       String?
+  nodeId          String         @default("")
+  deviceId        String?        // 业务唯一ID
+  group           String?        // 分组
   config          Json?
+  commConfig      Json?          // 通信参数（IP、端口、从站地址等）
   status          DeviceStatus  @default(OFFLINE)
+  templateVersion Int            @default(1)   // 当前同步的模板版本号
+  deployedVersion Int?           // 最后下发的版本号
+  collectStatus   String         @default("STOPPED")  // 采集状态: RUNNING/STOPPED
+  enabled         Boolean        @default(true)
   lastSyncTime    DateTime?
   lastDataTime    DateTime?
   cacheEnabled    Boolean?       // 设备级缓存开关（可选，覆盖网关设置）
@@ -126,22 +134,23 @@ model DeviceInstance {
   updatedAt       DateTime      @updatedAt
 
   model           DeviceModel   @relation(fields: [modelId], references: [id])
-  gateway         Gateway       @relation(fields: [gatewayId], references: [id])
+  gateway         Gateway?      @relation(fields: [gatewayId], references: [id])
   syncRecords     SyncRecord[]
   dataPoints      DeviceDataPoint[]
+  points          DevicePoint[]
 
   @@unique([gatewayId, nodeId])
+  @@index([gatewayId])
+  @@index([modelId])
+  @@index([status])
 }
 
 enum DeviceStatus {
   ONLINE
   OFFLINE
-  SYNCING
+  DISABLED
+  COLLECTING
   ERROR
-  PENDING
-  UNBOUND
-  PENDING_SYNC
-  RUNNING
 }
 
 model SyncRecord {
@@ -262,4 +271,32 @@ enum ReplayStatus {
   REPLAYING
   PAUSED
   COMPLETED
+}
+
+enum PointSource {
+  TEMPLATE
+  DEVICE
+}
+
+model DevicePoint {
+  id          String      @id @default(cuid())
+  instanceId  String
+  name        String
+  tag         String
+  dataType    DataType
+  address     String
+  unit        String?
+  description String?
+  config      Json        @default("{}")
+  enabled     Boolean     @default(true)
+  source      PointSource @default(DEVICE)
+  sort        Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  instance    DeviceInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@unique([instanceId, tag])
+  @@index([instanceId])
+  @@index([instanceId, source])
 }

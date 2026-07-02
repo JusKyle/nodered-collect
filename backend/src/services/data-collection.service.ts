@@ -74,7 +74,7 @@ const bufferDataPoints = async (
       where: { id: deviceInstanceId },
       select: { gatewayId: true }
     })
-    resolvedGatewayId = instance?.gatewayId
+    resolvedGatewayId = instance?.gatewayId ?? undefined
   }
 
   if (!resolvedGatewayId) return

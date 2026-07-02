@@ -6,6 +6,7 @@ import GatewayDetail from './pages/gateway/GatewayDetail'
 import DeviceModelList from './pages/device-model/DeviceModelList'
 import DeviceModelDetail from './pages/device-model/DeviceModelDetail'
 import DeviceInstanceList from './pages/device-instance/DeviceInstanceList'
+import DeviceInstanceDetail from './pages/device-instance/Detail'
 import SyncRecords from './pages/sync/SyncRecords'
 import RegistrationCodeList from './pages/registration/RegistrationCodeList'
 import SystemConfigPage from './pages/system/SystemConfigPage'
@@ -53,6 +54,7 @@ function App() {
           <Route path="device-models" element={<DeviceModelList />} />
           <Route path="device-models/:id" element={<DeviceModelDetail />} />
           <Route path="device-instances" element={<DeviceInstanceList />} />
+          <Route path="device-instance/:id" element={<DeviceInstanceDetail />} />
           <Route path="sync" element={<SyncRecords />} />
           <Route path="registration-codes" element={<RegistrationCodeList />} />
           <Route path="system-config" element={<SystemConfigPage />} />

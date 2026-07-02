@@ -1,5 +1,5 @@
 import { prisma } from '../../config/db'
-import { DeviceModel, ModelVersion, ModelStatus, Prisma, DataType } from '@prisma/client'
+import { DeviceModel, ModelVersion, ModelStatus, Prisma } from '@prisma/client'
 
 export interface DeviceModelListQuery {
   name?: string
@@ -13,10 +13,12 @@ export interface DeviceModelListItem {
   modelDI: string
   name: string
   protocol: string
-  version: number
+  version: string
+  status: string
   createdAt: Date
   updatedAt: Date
   pointCount: number
+  instanceCount: number
 }
 
 export const createDeviceModel = async (data: {
@@ -47,7 +49,18 @@ export const getDeviceModels = async (query: DeviceModelListQuery): Promise<{
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
       orderBy: { updatedAt: 'desc' },
-      include: { _count: { select: { pointModels: true } } }
+      select: {
+        id: true,
+        model: true,
+        name: true,
+        protocol: true,
+        version: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        points: true,
+        _count: { select: { deviceInstances: true } }
+      }
     }),
     prisma.deviceModel.count({ where })
   ])
@@ -59,9 +72,11 @@ export const getDeviceModels = async (query: DeviceModelListQuery): Promise<{
       name: model.name,
       protocol: model.protocol,
       version: model.version,
+      status: model.status,
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
-      pointCount: model._count.pointModels
+      pointCount: Array.isArray(model.points) ? model.points.length : 0,
+      instanceCount: model._count.deviceInstances
     })),
     total,
     page: query.page,
@@ -83,8 +98,7 @@ export const getDeviceModelById = async (id: string): Promise<DeviceModel | null
 
 export const getDeviceModelDetailById = async (id: string) => {
   const model = await prisma.deviceModel.findUnique({
-    where: { id },
-    include: { pointModels: { orderBy: { sort: 'asc' } } }
+    where: { id }
   })
   if (!model) return null
 
@@ -92,12 +106,14 @@ export const getDeviceModelDetailById = async (id: string) => {
     id: model.id,
     modelDI: model.model,
     name: model.name,
+    vendor: model.vendor,
     protocol: model.protocol,
     version: model.version,
     description: model.description,
+    status: model.status,
     createdAt: model.createdAt,
     updatedAt: model.updatedAt,
-    points: model.pointModels
+    points: model.points
   }
 }
 
@@ -110,7 +126,7 @@ export const updateDeviceModelBasic = async (
 
 export const updateDeviceModel = async (
   id: string,
-  data: { name?: string; vendor?: string; model?: string; protocol?: string; description?: string; points?: object[]; status?: ModelStatus; version?: number }
+  data: { name?: string; vendor?: string; model?: string; protocol?: string; description?: string; points?: object[]; status?: ModelStatus; version?: string }
 ): Promise<DeviceModel> => {
   return prisma.deviceModel.update({ where: { id }, data })
 }
@@ -129,141 +145,144 @@ export const getDeviceModelUsage = async (id: string): Promise<number> => {
 
 export interface PointInput {
   name?: string
-  tag?: string
-  dataType?: DataType | string
+  code?: string
+  dataType?: string
   address?: string
   unit?: string
   description?: string
-  config?: object
+  readWrite?: string
 }
+
+// points 存储在 DeviceModel 的 JSON 字段中，以下函数直接操作该字段
 
 export const getModelPoints = async (
   modelId: string,
   query: { name?: string; page: number; pageSize: number }
 ) => {
-  const where: Prisma.PointModelWhereInput = {
-    modelId,
-    ...(query.name
-      ? {
-          OR: [
-            { name: { contains: query.name, mode: 'insensitive' } },
-            { tag: { contains: query.name, mode: 'insensitive' } }
-          ]
-        }
-      : {})
+  const model = await prisma.deviceModel.findUnique({ where: { id: modelId } })
+  if (!model) throw { code: 'MODEL_NOT_FOUND', message: '模板不存在' }
+
+  let points = (model.points as any[]) || []
+  if (query.name) {
+    const keyword = query.name.toLowerCase()
+    points = points.filter((p: any) =>
+      (p.name && p.name.toLowerCase().includes(keyword)) ||
+      (p.code && p.code.toLowerCase().includes(keyword))
+    )
   }
 
-  const [list, total] = await Promise.all([
-    prisma.pointModel.findMany({
-      where,
-      orderBy: { sort: 'asc' },
-      skip: (query.page - 1) * query.pageSize,
-      take: query.pageSize
-    }),
-    prisma.pointModel.count({ where })
-  ])
+  const total = points.length
+  const start = (query.page - 1) * query.pageSize
+  const list = points.slice(start, start + query.pageSize)
 
   return { list, total, page: query.page, pageSize: query.pageSize }
 }
 
-export const findPointByTag = async (modelId: string, tag: string) => {
-  return prisma.pointModel.findUnique({ where: { modelId_tag: { modelId, tag } } })
-}
+export const createPoint = async (modelId: string, data: PointInput) => {
+  const model = await prisma.deviceModel.findUnique({ where: { id: modelId } })
+  if (!model) throw { code: 'MODEL_NOT_FOUND', message: '模板不存在' }
 
-export const getPointById = async (id: string) => {
-  return prisma.pointModel.findUnique({ where: { id } })
-}
+  const points = (model.points as any[]) || []
+  const newPoint = {
+    name: data.name || '',
+    code: data.code || '',
+    dataType: data.dataType || 'FLOAT',
+    address: data.address || '',
+    unit: data.unit || '',
+    description: data.description || '',
+    readWrite: data.readWrite || 'R'
+  }
+  points.push(newPoint)
 
-export const createPointWithVersion = async (modelId: string, data: PointInput) => {
-  return prisma.$transaction(async (tx) => {
-    const lastPoint = await tx.pointModel.findFirst({ where: { modelId }, orderBy: { sort: 'desc' } })
-    const point = await tx.pointModel.create({
-      data: {
-        modelId,
-        name: data.name!,
-        tag: data.tag!,
-        dataType: data.dataType as DataType,
-        address: data.address || '',
-        unit: data.unit,
-        description: data.description,
-        config: data.config || {},
-        sort: lastPoint ? lastPoint.sort + 1 : 0
-      }
-    })
-    await tx.deviceModel.update({ where: { id: modelId }, data: { version: { increment: 1 } } })
-    return point
+  const newVersion = model.version + 1
+  await prisma.modelVersion.create({
+    data: { modelId, version: model.version, points: model.points as any }
+  })
+
+  return prisma.deviceModel.update({
+    where: { id: modelId },
+    data: { points, version: newVersion }
   })
 }
 
-export const updatePointWithVersion = async (modelId: string, pointId: string, data: PointInput) => {
-  return prisma.$transaction(async (tx) => {
-    const point = await tx.pointModel.update({
-      where: { id: pointId },
-      data: {
-        ...(data.name !== undefined ? { name: data.name } : {}),
-        ...(data.tag !== undefined ? { tag: data.tag } : {}),
-        ...(data.dataType !== undefined ? { dataType: data.dataType as DataType } : {}),
-        ...(data.address !== undefined ? { address: data.address } : {}),
-        ...(data.unit !== undefined ? { unit: data.unit } : {}),
-        ...(data.description !== undefined ? { description: data.description } : {}),
-        ...(data.config !== undefined ? { config: data.config } : {})
-      }
-    })
-    await tx.deviceModel.update({ where: { id: modelId }, data: { version: { increment: 1 } } })
-    return point
+export const updatePoint = async (modelId: string, pointIndex: number, data: PointInput) => {
+  const model = await prisma.deviceModel.findUnique({ where: { id: modelId } })
+  if (!model) throw { code: 'MODEL_NOT_FOUND', message: '模板不存在' }
+
+  const points = (model.points as any[]) || []
+  if (pointIndex < 0 || pointIndex >= points.length) {
+    throw { code: 'POINT_NOT_FOUND', message: '点位不存在' }
+  }
+
+  points[pointIndex] = {
+    ...points[pointIndex],
+    ...(data.name !== undefined ? { name: data.name } : {}),
+    ...(data.code !== undefined ? { code: data.code } : {}),
+    ...(data.dataType !== undefined ? { dataType: data.dataType } : {}),
+    ...(data.address !== undefined ? { address: data.address } : {}),
+    ...(data.unit !== undefined ? { unit: data.unit } : {}),
+    ...(data.description !== undefined ? { description: data.description } : {}),
+    ...(data.readWrite !== undefined ? { readWrite: data.readWrite } : {})
+  }
+
+  const newVersion = model.version + 1
+  await prisma.modelVersion.create({
+    data: { modelId, version: model.version, points: model.points as any }
+  })
+
+  return prisma.deviceModel.update({
+    where: { id: modelId },
+    data: { points, version: newVersion }
   })
 }
 
-export const deletePointWithVersion = async (modelId: string, pointId: string): Promise<void> => {
-  await prisma.$transaction(async (tx) => {
-    await tx.pointModel.delete({ where: { id: pointId } })
-    const points = await tx.pointModel.findMany({ where: { modelId }, orderBy: { sort: 'asc' } })
-    await Promise.all(points.map((point, index) => tx.pointModel.update({ where: { id: point.id }, data: { sort: index } })))
-    await tx.deviceModel.update({ where: { id: modelId }, data: { version: { increment: 1 } } })
+export const deletePoint = async (modelId: string, pointIndex: number): Promise<void> => {
+  const model = await prisma.deviceModel.findUnique({ where: { id: modelId } })
+  if (!model) throw { code: 'MODEL_NOT_FOUND', message: '模板不存在' }
+
+  const points = (model.points as any[]) || []
+  if (pointIndex < 0 || pointIndex >= points.length) {
+    throw { code: 'POINT_NOT_FOUND', message: '点位不存在' }
+  }
+
+  points.splice(pointIndex, 1)
+
+  const newVersion = model.version + 1
+  await prisma.modelVersion.create({
+    data: { modelId, version: model.version, points: model.points as any }
+  })
+
+  await prisma.deviceModel.update({
+    where: { id: modelId },
+    data: { points, version: newVersion }
   })
 }
 
 export const createModelVersion = async (data: {
   modelId: string
   version: number
-  points: object[]
+  points: any
 }): Promise<ModelVersion> => {
   return prisma.modelVersion.create({ data })
 }
 
-export const duplicateDeviceModelWithPoints = async (id: string, name: string): Promise<DeviceModel> => {
-  return prisma.$transaction(async (tx) => {
-    const originalModel = await tx.deviceModel.findUnique({ where: { id }, include: { pointModels: true } })
-    if (!originalModel) {
-      throw { code: 'DEVICE_MODEL_NOT_FOUND', message: 'Device model not found' }
+export const duplicateDeviceModel = async (id: string, name: string): Promise<DeviceModel> => {
+  const originalModel = await prisma.deviceModel.findUnique({ where: { id } })
+  if (!originalModel) {
+    throw { code: 'DEVICE_MODEL_NOT_FOUND', message: 'Device model not found' }
+  }
+
+  return prisma.deviceModel.create({
+    data: {
+      name,
+      vendor: originalModel.vendor,
+      model: `${originalModel.model}_copy_${Date.now()}`,
+      protocol: originalModel.protocol,
+      description: originalModel.description,
+      points: originalModel.points as any,
+      status: ModelStatus.ENABLED,
+      version: 1
     }
-    const copiedModel = await tx.deviceModel.create({
-      data: {
-        name,
-        vendor: originalModel.vendor,
-        model: `${originalModel.model}_copy_${Date.now()}`,
-        protocol: originalModel.protocol,
-        description: originalModel.description,
-        points: [],
-        version: 1
-      }
-    })
-    if (originalModel.pointModels.length > 0) {
-      await tx.pointModel.createMany({
-        data: originalModel.pointModels.map((point) => ({
-          modelId: copiedModel.id,
-          name: point.name,
-          tag: point.tag,
-          dataType: point.dataType,
-          address: point.address,
-          unit: point.unit,
-          description: point.description,
-          config: point.config || {},
-          sort: point.sort
-        }))
-      })
-    }
-    return copiedModel
   })
 }
 
@@ -278,28 +297,21 @@ export const updateModelStatus = async (id: string, status: ModelStatus): Promis
   return prisma.deviceModel.update({ where: { id }, data: { status } })
 }
 
-export const importPoints = async (id: string, points: object[]): Promise<DeviceModel> => {
-  await prisma.$transaction(async (tx) => {
-    const lastPoint = await tx.pointModel.findFirst({ where: { modelId: id }, orderBy: { sort: 'desc' } })
-    await tx.pointModel.createMany({
-      data: points.map((point: any, index) => ({
-        modelId: id,
-        name: point.name,
-        tag: point.tag || point.code,
-        dataType: point.dataType,
-        address: point.address,
-        unit: point.unit,
-        description: point.description,
-        config: point.config || {},
-        sort: (lastPoint ? lastPoint.sort + 1 : 0) + index
-      }))
-    })
-    await tx.deviceModel.update({ where: { id }, data: { version: { increment: 1 } } })
-  })
+export const importPoints = async (id: string, newPoints: object[]): Promise<DeviceModel> => {
+  const model = await prisma.deviceModel.findUnique({ where: { id } })
+  if (!model) throw { code: 'MODEL_NOT_FOUND', message: '模板不存在' }
 
-  return prisma.deviceModel.findUniqueOrThrow({ where: { id } })
+  const existingPoints = (model.points as any[]) || []
+  const mergedPoints = [...existingPoints, ...newPoints]
+
+  return prisma.deviceModel.update({
+    where: { id },
+    data: { points: mergedPoints }
+  })
 }
 
 export const getAllModelPoints = async (modelId: string) => {
-  return prisma.pointModel.findMany({ where: { modelId }, orderBy: { sort: 'asc' } })
+  const model = await prisma.deviceModel.findUnique({ where: { id: modelId } })
+  if (!model) return []
+  return (model.points as any[]) || []
 }

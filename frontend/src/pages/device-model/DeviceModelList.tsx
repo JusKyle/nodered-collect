@@ -5,7 +5,7 @@ import DeviceModelCreateModal from './DeviceModelCreateModal'
 import DeviceModelEditModal from './DeviceModelEditModal'
 import DeviceModelDuplicateModal from './DeviceModelDuplicateModal'
 import ImportPointsModal from './ImportPointsModal'
-import DeleteModelConfirmBubble from './DeleteModelConfirmBubble'
+import DeleteModelConfirmModal from './DeleteModelConfirmModal'
 import PointModal from './components/PointModal'
 import { showToast } from '../../utils/toast'
 import type { DeviceModel, Point } from '../../types'
@@ -32,7 +32,9 @@ function DeviceModelList() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isPointsModalOpen, setIsPointsModalOpen] = useState(false)
   const [isCreatePointOpen, setIsCreatePointOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [editingPoint, setEditingPoint] = useState<Point | null>(null)
+  const [editingPointIndex, setEditingPointIndex] = useState<number>(-1)
   const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null)
   const [points, setPoints] = useState<Point[]>([])
   const [pointsTotal, setPointsTotal] = useState(0)
@@ -104,18 +106,19 @@ function DeviceModelList() {
   }
 
   const handleUpdatePoint = async (data: Partial<Point>) => {
-    if (!selectedModel?.id || !editingPoint?.id) return
-    await updatePoint(selectedModel.id, editingPoint.id, data)
+    if (!selectedModel?.id || editingPointIndex < 0) return
+    await updatePoint(selectedModel.id, editingPointIndex, data)
     showToast('保存成功', 'success')
     setEditingPoint(null)
+    setEditingPointIndex(-1)
     await loadPoints(selectedModel)
     queryModels(page)
   }
 
-  const handleDeletePoint = async (point: Point) => {
-    if (!selectedModel?.id || !point.id) return
+  const handleDeletePoint = async (index: number, point: Point) => {
+    if (!selectedModel?.id) return
     if (!window.confirm(`确定删除点位「${point.name}」吗？`)) return
-    await deletePoint(selectedModel.id, point.id)
+    await deletePoint(selectedModel.id, index)
     showToast('删除成功', 'success')
     await loadPoints(selectedModel)
     queryModels(page)
@@ -232,7 +235,7 @@ function DeviceModelList() {
                     <button onClick={() => handleOpenPoints(model)} className="text-primary-500 hover:text-indigo-800 font-medium">点位</button>
                     <button onClick={() => { setSelectedModel(model); setIsEditModalOpen(true) }} className="text-gray-500 hover:text-primary-500 font-medium">编辑</button>
                     <button onClick={() => { setSelectedModel(model); setIsDuplicateModalOpen(true) }} className="text-gray-500 hover:text-primary-500 font-medium">复制</button>
-                    <DeleteModelConfirmBubble model={model} onDelete={() => queryModels(page)} />
+                    <button onClick={() => { setSelectedModel(model); setIsDeleteModalOpen(true) }} className="text-red-500 hover:text-red-700 font-medium">删除</button>
                   </div>
                 </td>
               </tr>
@@ -299,14 +302,14 @@ function DeviceModelList() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {pointsLoading && <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-500"><i className="fas fa-spinner fa-spin mr-2"></i>加载中...</td></tr>}
                   {!pointsLoading && points.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400">暂无点位，点击新增</td></tr>}
-                  {!pointsLoading && points.map((point) => (
-                    <tr key={point.id || point.tag} className="hover:bg-gray-50 transition-colors">
+                  {!pointsLoading && points.map((point, index) => (
+                    <tr key={index} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3"><div className="text-sm font-medium text-gray-900">{point.name}</div><div className="text-xs text-gray-400 mt-0.5">{point.tag || point.code}</div></td>
                       <td className="px-4 py-3 text-sm text-gray-600 font-mono">{point.address}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{point.dataType}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{getPointAccess(point)}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{point.unit || '-'}</td>
-                      <td className="px-4 py-3"><div className="flex items-center gap-3 text-sm"><button onClick={() => setEditingPoint(point)} className="text-primary-500 hover:text-indigo-800 font-medium">编辑</button><button onClick={() => handleDeletePoint(point)} className="text-red-500 hover:text-red-700 font-medium">删除</button></div></td>
+                      <td className="px-4 py-3"><div className="flex items-center gap-3 text-sm"><button onClick={() => { setEditingPoint(point); setEditingPointIndex(index) }} className="text-primary-500 hover:text-indigo-800 font-medium">编辑</button><button onClick={() => handleDeletePoint(index, point)} className="text-red-500 hover:text-red-700 font-medium">删除</button></div></td>
                     </tr>
                   ))}
                 </tbody>
@@ -321,7 +324,13 @@ function DeviceModelList() {
       <DeviceModelDuplicateModal isOpen={isDuplicateModalOpen} onClose={() => setIsDuplicateModalOpen(false)} model={selectedModel} onDuplicateSuccess={() => queryModels(page)} />
       <ImportPointsModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} modelId={selectedModel?.id || ''} onImportSuccess={() => { loadPoints(); queryModels(page) }} />
       <PointModal isOpen={isCreatePointOpen} title="新增点位" protocol={selectedModel?.protocol || ''} onClose={() => setIsCreatePointOpen(false)} onSubmit={handleCreatePoint} />
-      <PointModal isOpen={!!editingPoint} title="编辑点位" protocol={selectedModel?.protocol || ''} point={editingPoint} onClose={() => setEditingPoint(null)} onSubmit={handleUpdatePoint} />
+      <PointModal isOpen={!!editingPoint} title="编辑点位" protocol={selectedModel?.protocol || ''} point={editingPoint} onClose={() => { setEditingPoint(null); setEditingPointIndex(-1) }} onSubmit={handleUpdatePoint} />
+      <DeleteModelConfirmModal
+        isOpen={isDeleteModalOpen}
+        model={selectedModel}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onDelete={() => { setIsDeleteModalOpen(false); queryModels(page) }}
+      />
     </div>
   )
 }

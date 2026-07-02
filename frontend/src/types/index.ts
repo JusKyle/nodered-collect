@@ -85,7 +85,7 @@ export interface DeviceInstance {
     points?: Point[]
     customPoints?: Point[]
   }
-  status: 'PENDING' | 'UNBOUND' | 'PENDING_SYNC' | 'RUNNING' | 'ONLINE' | 'OFFLINE' | 'SYNCING' | 'ERROR'
+  status: 'ONLINE' | 'OFFLINE' | 'DISABLED' | 'COLLECTING' | 'ERROR'
   lastSyncTime: string | null
   lastDataTime: string | null
   createdAt: string

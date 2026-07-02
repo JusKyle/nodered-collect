@@ -27,7 +27,6 @@ const schema = z.object({
     .number()
     .min(1, '端口号需在 1-65535 之间')
     .max(65535, '端口号需在 1-65535 之间'),
-  adminToken: z.string().min(1, '请输入 Admin Token'),
   description: z.string().max(200, '描述不能超过200个字符').optional(),
 })
 
@@ -40,13 +39,11 @@ function GatewayEditModal({ isOpen, onClose, gateway, onSuccess }: GatewayEditMo
       name: '',
       address: '',
       port: 1880,
-      adminToken: '',
       description: '',
     },
   })
 
   const { updateGateway, fetchGateways } = useGatewayStore()
-  const [showToken, setShowToken] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle')
   const [connectionMessage, setConnectionMessage] = useState('')
 
@@ -56,7 +53,6 @@ function GatewayEditModal({ isOpen, onClose, gateway, onSuccess }: GatewayEditMo
         name: gateway.name,
         address: gateway.address,
         port: gateway.port,
-        adminToken: gateway.adminToken || '',
         description: (gateway as any).description || '',
       })
     }
@@ -75,11 +71,9 @@ function GatewayEditModal({ isOpen, onClose, gateway, onSuccess }: GatewayEditMo
     try {
       const address = watch('address')
       const port = watch('port')
-      const adminToken = watch('adminToken')
       const result = await testConnection({
         address,
         port: port || 1880,
-        adminToken,
       })
       if (result.allPassed) {
         setConnectionStatus('success')
@@ -101,7 +95,6 @@ function GatewayEditModal({ isOpen, onClose, gateway, onSuccess }: GatewayEditMo
         name: data.name,
         address: data.address,
         port: data.port,
-        adminToken: data.adminToken,
       })
       await fetchGateways()
       showToast('网关信息更新成功', 'success')
@@ -125,13 +118,6 @@ function GatewayEditModal({ isOpen, onClose, gateway, onSuccess }: GatewayEditMo
           >
             <i className="fas fa-times"></i>
           </button>
-        </div>
-
-        <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-3">
-          <p className="text-sm text-yellow-700 flex items-center gap-2">
-            <i className="fas fa-exclamation-triangle text-yellow-500"></i>
-            修改 Token 后需要等待下次心跳或手动测试连接验证
-          </p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
@@ -178,24 +164,16 @@ function GatewayEditModal({ isOpen, onClose, gateway, onSuccess }: GatewayEditMo
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Admin Token <span className="text-red-500">*</span>
+              描述
             </label>
-            <div className="relative">
-              <input
-                {...register('adminToken')}
-                type={showToken ? 'text' : 'password'}
-                placeholder="请输入 Admin Token"
-                className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent pr-10 ${errors.adminToken ? 'border-red-500' : 'border-gray-200'}`}
-              />
-              <button
-                type="button"
-                onClick={() => setShowToken(!showToken)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <i className={`fas ${showToken ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-              </button>
-            </div>
-            {errors.adminToken && <p className="mt-1.5 text-xs text-red-500">{errors.adminToken.message}</p>}
+            <textarea
+              {...register('description')}
+              placeholder="请输入描述（可选）"
+              rows={3}
+              maxLength={200}
+              className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none ${errors.description ? 'border-red-500' : 'border-gray-200'}`}
+            />
+            {errors.description && <p className="mt-1.5 text-xs text-red-500">{errors.description.message}</p>}
           </div>
 
           {connectionStatus !== 'idle' && (

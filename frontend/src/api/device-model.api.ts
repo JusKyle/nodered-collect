@@ -99,13 +99,13 @@ export const createPoint = async (modelId: string, data: Partial<Point>): Promis
   return response.data.data
 }
 
-export const updatePoint = async (modelId: string, pointId: string, data: Partial<Point>): Promise<Point> => {
-  const response = await api.put(`/device-models/${modelId}/points/${pointId}`, data)
+export const updatePoint = async (modelId: string, pointIndex: number, data: Partial<Point>): Promise<Point> => {
+  const response = await api.put(`/device-models/${modelId}/points/${pointIndex}`, data)
   return response.data.data
 }
 
-export const deletePoint = async (modelId: string, pointId: string): Promise<void> => {
-  await api.delete(`/device-models/${modelId}/points/${pointId}`)
+export const deletePoint = async (modelId: string, pointIndex: number): Promise<void> => {
+  await api.delete(`/device-models/${modelId}/points/${pointIndex}`)
 }
 
 export const exportPoints = async (modelId: string): Promise<Blob> => {

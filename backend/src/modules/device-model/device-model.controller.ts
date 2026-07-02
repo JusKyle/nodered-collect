@@ -96,7 +96,7 @@ export const exportPoints = async (req: Request, res: Response) => {
   try {
     const points = await service.exportPoints(req.params.id)
     const header = '点位名称,点位标识,数据类型,地址,单位,描述\n'
-    const rows = points.map((point: any) => [point.name, point.tag, point.dataType, point.address, point.unit || '', point.description || ''].map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const rows = points.map((point: any) => [point.name, point.code || point.tag || '', point.dataType, point.address, point.unit || '', point.description || ''].map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n')
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', 'attachment; filename="points.csv"')
     res.send(`\uFEFF${header}${rows}`)
@@ -116,7 +116,11 @@ export const createPoint = async (req: Request, res: Response) => {
 
 export const updatePoint = async (req: Request, res: Response) => {
   try {
-    const point = await service.updatePoint(req.params.id, req.params.pointId, req.body)
+    const pointIndex = parseInt(req.params.pointId, 10)
+    if (isNaN(pointIndex)) {
+      return res.status(400).json({ code: 'INVALID_POINT_INDEX', message: '点位索引必须是数字' })
+    }
+    const point = await service.updatePoint(req.params.id, pointIndex, req.body)
     res.json({ success: true, data: point })
   } catch (error: any) {
     return handleDeviceModelError(res, error)
@@ -125,7 +129,11 @@ export const updatePoint = async (req: Request, res: Response) => {
 
 export const deletePoint = async (req: Request, res: Response) => {
   try {
-    await service.deletePoint(req.params.id, req.params.pointId)
+    const pointIndex = parseInt(req.params.pointId, 10)
+    if (isNaN(pointIndex)) {
+      return res.status(400).json({ code: 'INVALID_POINT_INDEX', message: '点位索引必须是数字' })
+    }
+    await service.deletePoint(req.params.id, pointIndex)
     res.json({ success: true })
   } catch (error: any) {
     return handleDeviceModelError(res, error)

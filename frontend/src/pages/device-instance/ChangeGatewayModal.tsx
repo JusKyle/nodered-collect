@@ -1,19 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useGatewayStore } from '../../stores/gateway.store'
-import { useDeviceInstanceStore } from '../../stores/device-instance.store'
-import type { DeviceInstance, Gateway } from '../../types'
-import * as deviceInstanceApi from '../../api/device-instance.api'
+import { changeGateway as changeGatewayApi } from '../../api/device-instance.api'
+import { showToast } from '../../utils/toast'
+import type { DeviceInstanceListItem } from '../../api/device-instance.api'
 
 interface ChangeGatewayModalProps {
   isOpen: boolean
   onClose: () => void
-  instance: DeviceInstance | null
+  instance: DeviceInstanceListItem | null
   onSuccess: () => void
 }
 
 function ChangeGatewayModal({ isOpen, onClose, instance, onSuccess }: ChangeGatewayModalProps) {
   const { gateways, fetchGateways } = useGatewayStore()
-  const { fetchDeviceInstances } = useDeviceInstanceStore()
   const [selectedGatewayId, setSelectedGatewayId] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -25,21 +24,20 @@ function ChangeGatewayModal({ isOpen, onClose, instance, onSuccess }: ChangeGate
   }, [isOpen, instance, fetchGateways])
 
   const handleClose = () => {
-    setSelectedGatewayId(instance?.gatewayId || '')
+    setSelectedGatewayId('')
     onClose()
   }
 
   const handleConfirm = async () => {
     if (!instance || !selectedGatewayId) return
-
     setIsSubmitting(true)
     try {
-      await deviceInstanceApi.changeGateway(instance.id, selectedGatewayId)
-      await fetchDeviceInstances()
+      await changeGatewayApi(instance.id, selectedGatewayId)
+      showToast('变更网关成功', 'success')
       handleClose()
       onSuccess()
     } catch (error: any) {
-      console.error('更改网关失败:', error)
+      showToast(error.response?.data?.message || '变更失败', 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -47,49 +45,42 @@ function ChangeGatewayModal({ isOpen, onClose, instance, onSuccess }: ChangeGate
 
   if (!isOpen || !instance) return null
 
-  const availableGateways = gateways.filter((g: Gateway) => g.id !== instance.gatewayId)
+  const availableGateways = gateways.filter(g => g.id !== instance.gatewayId)
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">更改网关</h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-2xl w-[480px] overflow-hidden">
+        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-gray-900">变更网关</h3>
+          <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+            <i className="fas fa-times"></i>
           </button>
         </div>
-
         <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-3">
           <p className="text-sm text-yellow-800">
-            更改网关后，如需在新网关上运行，请手动执行'下发配置'
+            <i className="fas fa-exclamation-triangle mr-1.5"></i>
+            变更网关后，如需在新网关上运行，请手动执行"下发配置"
           </p>
         </div>
-
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">当前网关</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">当前网关</label>
             <input
               type="text"
-              value={instance.gateway?.name || '-'}
+              value={instance.gatewayName || '未分配'}
               disabled
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500"
+              className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-sm text-gray-500"
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">选择新网关 *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">选择新网关 <span className="text-red-500">*</span></label>
             <select
               value={selectedGatewayId}
               onChange={(e) => setSelectedGatewayId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">请选择网关</option>
-              {availableGateways.map((gateway: Gateway) => (
+              {availableGateways.map(gateway => (
                 <option key={gateway.id} value={gateway.id}>
                   {gateway.name} ({gateway.address}:{gateway.port})
                 </option>
@@ -97,21 +88,9 @@ function ChangeGatewayModal({ isOpen, onClose, instance, onSuccess }: ChangeGate
             </select>
           </div>
         </div>
-
-        <div className="flex items-center justify-end px-6 py-4 border-t bg-gray-50 space-x-3">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={!selectedGatewayId || isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+          <button onClick={handleClose} className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">取消</button>
+          <button onClick={handleConfirm} disabled={!selectedGatewayId || isSubmitting} className="px-5 py-2.5 bg-primary-500 text-white rounded-lg hover:bg-indigo-600 text-sm font-medium disabled:opacity-50">
             {isSubmitting ? '保存中...' : '确认'}
           </button>
         </div>

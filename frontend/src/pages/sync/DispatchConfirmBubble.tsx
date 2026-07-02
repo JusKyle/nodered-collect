@@ -26,7 +26,7 @@ function DispatchConfirmBubble({ instance, onDispatchSuccess }: DispatchConfirmB
         gatewayId: instance.gatewayId,
         deviceInstanceId: instance.id,
       })
-      await updateDeviceInstance(instance.id, { status: 'SYNCING' })
+      await updateDeviceInstance(instance.id, { status: 'COLLECTING' })
       setShowBubble(false)
       showToast('配置下发成功', 'success')
       onDispatchSuccess()

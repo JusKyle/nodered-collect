@@ -30,7 +30,7 @@ export interface DeviceInstanceInfo {
   gatewayId: string
   nodeId: string
   config: Record<string, any>
-  status: 'ONLINE' | 'OFFLINE' | 'SYNCING' | 'ERROR'
+  status: 'ONLINE' | 'OFFLINE' | 'DISABLED' | 'COLLECTING' | 'ERROR'
   lastSyncTime?: Date
 }
 

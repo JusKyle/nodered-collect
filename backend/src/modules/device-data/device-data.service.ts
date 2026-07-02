@@ -63,7 +63,7 @@ export const getCurrentData = async (instanceId: string) => {
   return {
     deviceInstanceId: instance.id,
     deviceName: instance.name,
-    gatewayName: instance.gateway.name,
+    gatewayName: instance.gateway?.name ?? null,
     status: instance.status,
     lastDataTime: instance.lastDataTime?.toISOString() ?? null,
     points
@@ -186,7 +186,7 @@ export const getLatestData = async (options: {
         deviceInstanceId: instance.id,
         name: instance.name,
         modelName: instance.model.name,
-        gatewayName: instance.gateway.name,
+        gatewayName: instance.gateway?.name ?? null,
         status: instance.status,
         lastDataTime: instance.lastDataTime?.toISOString() ?? null,
         points: latestPoints
