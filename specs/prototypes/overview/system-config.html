@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>系统配置 - 原型</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { ink: '#17201a', moss: '#3f6b50', sage: '#eef5ef', line: '#dfe8e1', amber: '#d97706' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; letter-spacing: 0; }
+    .nav-item.active { background: #eef5ef; color: #2f5a40; }
+  </style>
+</head>
+<body class="bg-[#f7faf7] text-ink">
+  <div class="min-h-screen grid grid-cols-[248px_1fr]">
+    <aside class="bg-white border-r border-line px-4 py-5">
+      <div class="flex items-center gap-3 px-2 mb-7">
+        <div class="w-9 h-9 rounded-lg bg-moss text-white grid place-items-center"><i data-lucide="network"></i></div>
+        <div><div class="font-semibold text-[15px]">Node-RED Collect</div><div class="text-xs text-slate-500">分布式采集平台</div></div>
+      </div>
+      <nav class="space-y-1 text-sm">
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="layout-dashboard" class="w-4"></i>总览工作台</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="server" class="w-4"></i>边缘网关</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="cpu" class="w-4"></i>设备模型</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="router" class="w-4"></i>设备实例</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="send" class="w-4"></i>配置下发</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="qrcode" class="w-4"></i>注册码</button>
+        <button class="nav-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg"><i data-lucide="settings" class="w-4"></i>系统配置</button>
+      </nav>
+    </aside>
+    <main class="p-6">
+      <header class="flex items-center justify-between mb-6">
+        <div><h1 class="text-2xl font-semibold">系统配置</h1><p class="text-sm text-slate-500 mt-1">管理平台全局参数、MQTT 配置、缓存策略等</p></div>
+        <button class="h-9 px-3 rounded-lg bg-moss text-white text-sm">保存配置</button>
+      </header>
+      <div class="max-w-2xl space-y-4">
+        <section class="bg-white rounded-lg border border-line p-5">
+          <h2 class="font-semibold mb-4">MQTT 连接</h2>
+          <dl class="grid grid-cols-2 gap-y-3 text-sm"><dt class="text-slate-500">Broker 地址</dt><dd>mqtt://192.168.1.100:1883</dd><dt class="text-slate-500">客户端 ID 前缀</dt><dd>nrc-platform-</dd><dt class="text-slate-500">用户名</dt><dd>nrc_platform</dd><dt class="text-slate-500">心跳主题</dt><dd>gateway/+/heartbeat</dd><dt class="text-slate-500">数据主题</dt><dd>devices/+/data</dd><dt class="text-slate-500">补发主题</dt><dd>device/{deviceId}/replay</dd></dl>
+        </section>
+        <section class="bg-white rounded-lg border border-line p-5">
+          <h2 class="font-semibold mb-4">缓存与补发策略</h2>
+          <div class="space-y-4">
+            <div class="flex items-center justify-between"><div><div class="text-sm font-medium">系统级断网缓存</div><div class="text-xs text-slate-500">全局默认缓存开关，设备级和网关级可单独覆盖</div></div><label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" class="sr-only peer" /><div class="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:bg-moss peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div></label></div>
+            <div><label class="block text-sm font-medium mb-1">补发速率上限</label><div class="flex items-center gap-3"><input type="range" min="1" max="500" value="100" class="flex-1 accent-moss" /><span class="text-sm font-medium w-16 text-right">100 条/秒</span></div><div class="text-xs text-slate-500 mt-1">范围：1 - 500 条/秒</div></div>
+          </div>
+        </section>
+        <section class="bg-white rounded-lg border border-line p-5">
+          <h2 class="font-semibold mb-4">网关默认参数</h2>
+          <div class="grid grid-cols-2 gap-4"><label class="block text-sm"><span class="font-medium">心跳间隔（秒）</span><input class="mt-1 w-full h-9 rounded-lg border border-line px-3" value="30" /></label><label class="block text-sm"><span class="font-medium">离线判定（分钟）</span><input class="mt-1 w-full h-9 rounded-lg border border-line px-3" value="3" /></label><label class="block text-sm"><span class="font-medium">配置同步间隔（秒）</span><input class="mt-1 w-full h-9 rounded-lg border border-line px-3" value="60" /></label><label class="block text-sm"><span class="font-medium">性能数据保留（天）</span><input class="mt-1 w-full h-9 rounded-lg border border-line px-3" value="7" /></label></div>
+        </section>
+        <section class="bg-white rounded-lg border border-line p-5">
+          <h2 class="font-semibold mb-4">平台信息</h2>
+          <dl class="grid grid-cols-2 gap-y-3 text-sm"><dt class="text-slate-500">版本</dt><dd>v1.0.0</dd><dt class="text-slate-500">后端地址</dt><dd>http://localhost:3000</dd><dt class="text-slate-500">Node-RED Admin API</dt><dd>适用于 Node-RED v3.x+</dd><dt class="text-slate-500">数据库</dt><dd>PostgreSQL + Redis</dd><dt class="text-slate-500">SSE 端点</dt><dd>/api/events</dd></dl>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

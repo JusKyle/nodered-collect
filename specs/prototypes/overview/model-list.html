@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>设备模型管理 - 原型</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { ink: '#17201a', moss: '#3f6b50', sage: '#eef5ef', line: '#dfe8e1', amber: '#d97706' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; letter-spacing: 0; }
+    .nav-item.active { background: #eef5ef; color: #2f5a40; }
+  </style>
+</head>
+<body class="bg-[#f7faf7] text-ink">
+  <div class="min-h-screen grid grid-cols-[248px_1fr]">
+    <aside class="bg-white border-r border-line px-4 py-5">
+      <div class="flex items-center gap-3 px-2 mb-7">
+        <div class="w-9 h-9 rounded-lg bg-moss text-white grid place-items-center"><i data-lucide="network"></i></div>
+        <div><div class="font-semibold text-[15px]">Node-RED Collect</div><div class="text-xs text-slate-500">分布式采集平台</div></div>
+      </div>
+      <nav class="space-y-1 text-sm">
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="layout-dashboard" class="w-4"></i>总览工作台</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="server" class="w-4"></i>边缘网关</button>
+        <button class="nav-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg"><i data-lucide="cpu" class="w-4"></i>设备模型</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="router" class="w-4"></i>设备实例</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="send" class="w-4"></i>配置下发</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="qrcode" class="w-4"></i>注册码</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="settings" class="w-4"></i>系统配置</button>
+      </nav>
+    </aside>
+    <main class="p-6">
+      <header class="flex items-center justify-between mb-6">
+        <div><h1 class="text-2xl font-semibold">设备模型</h1><p class="text-sm text-slate-500 mt-1">定义设备采集模板，支持协议特殊字段与版本管理</p></div>
+        <div class="flex items-center gap-2">
+          <button class="h-9 px-3 rounded-lg border border-line bg-white text-sm flex items-center gap-2"><i data-lucide="upload" class="w-4"></i>导入</button>
+          <button class="h-9 px-3 rounded-lg bg-moss text-white text-sm flex items-center gap-2"><i data-lucide="plus" class="w-4"></i>新建模型</button>
+        </div>
+      </header>
+      <section class="grid grid-cols-4 gap-4 mb-5">
+        <div class="bg-white rounded-lg border border-line p-4"><div class="text-xs text-slate-500">模型总数</div><div class="mt-2 text-3xl font-semibold">18</div></div>
+        <div class="bg-white rounded-lg border border-line p-4"><div class="text-xs text-slate-500">协议类型</div><div class="mt-2 text-3xl font-semibold">4</div><div class="mt-1 text-xs text-slate-500">Modbus · S7 · OPC UA · MQTT</div></div>
+        <div class="bg-white rounded-lg border border-line p-4"><div class="text-xs text-slate-500">版本总数</div><div class="mt-2 text-3xl font-semibold">126</div></div>
+        <div class="bg-white rounded-lg border border-line p-4"><div class="text-xs text-slate-500">关联实例</div><div class="mt-2 text-3xl font-semibold">518</div></div>
+      </section>
+      <section class="bg-white rounded-lg border border-line">
+        <div class="px-4 py-3 border-b border-line flex items-center gap-2">
+          <input class="h-9 w-64 rounded-lg border border-line px-3 text-sm" placeholder="搜索模型名称..." />
+          <select class="h-9 rounded-lg border border-line px-3 text-sm bg-white"><option>全部协议</option><option>Modbus TCP</option><option>Modbus RTU</option><option>S7</option><option>OPC UA</option><option>MQTT</option></select>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs text-slate-500 bg-[#fafcfa]"><tr><th class="px-4 py-3 font-medium">模型名称</th><th class="font-medium">协议类型</th><th class="font-medium">实例数</th><th class="font-medium">点位数量</th><th class="font-medium">当前版本</th><th class="font-medium">更新时间</th><th class="font-medium">操作</th></tr></thead>
+          <tbody class="divide-y divide-line">
+            <tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3"><div class="font-medium">西门子 S7 温控模板</div><div class="text-xs text-slate-500">西门子 S7-1200 系列温控柜采集</div></td><td>S7</td><td>46</td><td>12</td><td><span class="inline-block px-2 py-0.5 rounded bg-sage text-moss text-xs">v6</span></td><td>2026-07-02 11:20</td><td><div class="flex gap-2"><a href="model-detail.html" class="text-moss hover:underline">详情</a><button class="text-slate-500 hover:text-ink">复制</button></div></td></tr>
+            <tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3"><div class="font-medium">通用 Modbus 采集模板</div><div class="text-xs text-slate-500">支持标准 Modbus TCP/RTU 点位配置</div></td><td>Modbus TCP</td><td>128</td><td>8</td><td><span class="inline-block px-2 py-0.5 rounded bg-sage text-moss text-xs">v12</span></td><td>2026-07-01 16:45</td><td><div class="flex gap-2"><a href="model-detail.html" class="text-moss hover:underline">详情</a><button class="text-slate-500 hover:text-ink">复制</button></div></td></tr>
+            <tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3"><div class="font-medium">能耗监测仪表模板</div><div class="text-xs text-slate-500">电表、水表、气表等能耗设备采集</div></td><td>Modbus RTU</td><td>89</td><td>6</td><td><span class="inline-block px-2 py-0.5 rounded bg-sage text-moss text-xs">v8</span></td><td>2026-06-30 09:12</td><td><div class="flex gap-2"><a href="model-detail.html" class="text-moss hover:underline">详情</a><button class="text-slate-500 hover:text-ink">复制</button></div></td></tr>
+            <tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3"><div class="font-medium">OPC UA 服务器采集</div><div class="text-xs text-slate-500">OPC UA 协议的节点采集配置</div></td><td>OPC UA</td><td>34</td><td>15</td><td><span class="inline-block px-2 py-0.5 rounded bg-sage text-moss text-xs">v4</span></td><td>2026-06-28 14:30</td><td><div class="flex gap-2"><a href="model-detail.html" class="text-moss hover:underline">详情</a><button class="text-slate-500 hover:text-ink">复制</button></div></td></tr>
+            <tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3"><div class="font-medium">MQTT 传感器模板</div><div class="text-xs text-slate-500">标准 JSON 格式的 MQTT 传感器采集</div></td><td>MQTT</td><td>56</td><td>4</td><td><span class="inline-block px-2 py-0.5 rounded bg-sage text-moss text-xs">v5</span></td><td>2026-06-27 11:15</td><td><div class="flex gap-2"><a href="model-detail.html" class="text-moss hover:underline">详情</a><button class="text-slate-500 hover:text-ink">复制</button></div></td></tr>
+          </tbody>
+        </table>
+        <div class="px-4 py-3 border-t border-line flex items-center justify-between text-sm text-slate-500">
+          <span>共 18 条，第 1-5 条</span>
+          <div class="flex items-center gap-1">
+            <button class="h-8 px-3 rounded border border-line bg-white disabled:opacity-40" disabled>上一页</button>
+            <button class="h-8 w-8 rounded bg-moss text-white">1</button>
+            <button class="h-8 w-8 rounded border border-line bg-white">2</button>
+            <button class="h-8 w-8 rounded border border-line bg-white">3</button>
+            <button class="h-8 w-8 rounded border border-line bg-white">4</button>
+            <button class="h-8 px-3 rounded border border-line bg-white">下一页</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

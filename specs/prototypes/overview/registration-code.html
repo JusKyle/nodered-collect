@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>注册码管理 - 原型</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { ink: '#17201a', moss: '#3f6b50', sage: '#eef5ef', line: '#dfe8e1', amber: '#d97706' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; letter-spacing: 0; }
+    .nav-item.active { background: #eef5ef; color: #2f5a40; }
+    .modal-mask { background: rgba(23,32,26,.5); }
+  </style>
+</head>
+<body class="bg-[#f7faf7] text-ink">
+  <div class="min-h-screen grid grid-cols-[248px_1fr]">
+    <aside class="bg-white border-r border-line px-4 py-5">
+      <div class="flex items-center gap-3 px-2 mb-7">
+        <div class="w-9 h-9 rounded-lg bg-moss text-white grid place-items-center"><i data-lucide="network"></i></div>
+        <div><div class="font-semibold text-[15px]">Node-RED Collect</div><div class="text-xs text-slate-500">分布式采集平台</div></div>
+      </div>
+      <nav class="space-y-1 text-sm">
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="layout-dashboard" class="w-4"></i>总览工作台</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="server" class="w-4"></i>边缘网关</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="cpu" class="w-4"></i>设备模型</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="router" class="w-4"></i>设备实例</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="send" class="w-4"></i>配置下发</button>
+        <button class="nav-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg"><i data-lucide="qrcode" class="w-4"></i>注册码</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="settings" class="w-4"></i>系统配置</button>
+      </nav>
+    </aside>
+    <main class="p-6">
+      <header class="flex items-center justify-between mb-6">
+        <div><h1 class="text-2xl font-semibold">注册码</h1><p class="text-sm text-slate-500 mt-1">管理网关注册码，用于 nodered-plugin 主动接入平台</p></div>
+        <button class="h-9 px-3 rounded-lg bg-moss text-white text-sm flex items-center gap-2" onclick="document.getElementById('createModal').classList.remove('hidden')"><i data-lucide="plus" class="w-4"></i>生成注册码</button>
+      </header>
+      <section class="grid grid-cols-3 gap-4 mb-5">
+        <div class="bg-white rounded-lg border border-line p-4"><div class="text-xs text-slate-500">可用注册码</div><div class="mt-2 text-3xl font-semibold text-emerald-600">12</div></div>
+        <div class="bg-white rounded-lg border border-line p-4"><div class="text-xs text-slate-500">已使用</div><div class="mt-2 text-3xl font-semibold">38</div></div>
+        <div class="bg-white rounded-lg border border-line p-4"><div class="text-xs text-slate-500">已过期</div><div class="mt-2 text-3xl font-semibold text-red-600">5</div></div>
+      </section>
+      <section class="bg-white rounded-lg border border-line">
+        <div class="px-4 py-3 border-b border-line flex items-center gap-2">
+          <select class="h-9 rounded-lg border border-line px-3 text-sm bg-white"><option>全部状态</option><option>可用</option><option>已使用</option><option>已过期</option></select>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs text-slate-500 bg-[#fafcfa]"><tr><th class="px-4 py-3 font-medium">注册码</th><th class="font-medium">状态</th><th class="font-medium">所属网关</th><th class="font-medium">创建时间</th><th class="font-medium">过期时间</th><th class="font-medium">使用时间</th><th class="font-medium">操作</th></tr></thead>
+          <tbody class="divide-y divide-line">
+            <tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3 font-mono text-sm">NRC-A3F2-7B1D-4E80</td><td><span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>可用</span></td><td>-</td><td>2026-07-01 10:00</td><td>2026-07-08 10:00</td><td>-</td><td><button class="text-red-500 hover:underline">作废</button></td></tr>
+            <tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3 font-mono text-sm">NRC-C891-2D3E-5F60</td><td><span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-slate-400"></span>已使用</span></td><td>GW-华东-锅炉房-01</td><td>2026-06-20 14:30</td><td>2026-06-27 14:30</td><td>2026-06-21 09:15</td><td><span class="text-slate-400">-</span></td></tr>
+            <tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3 font-mono text-sm">NRC-4A1B-9C8D-2E70</td><td><span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-red-500"></span>已过期</span></td><td>-</td><td>2026-06-10 09:00</td><td>2026-06-17 09:00</td><td>-</td><td><button class="text-moss hover:underline">重新生成</button></td></tr>
+            <tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3 font-mono text-sm">NRC-5D6E-1F2G-3H80</td><td><span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-slate-400"></span>已使用</span></td><td>GW-西区-产线-07</td><td>2026-06-15 11:20</td><td>2026-06-22 11:20</td><td>2026-06-16 08:45</td><td><span class="text-slate-400">-</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+      <div id="createModal" class="hidden fixed inset-0 modal-mask z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg w-full max-w-md p-6 mx-4">
+          <div class="flex items-center justify-between mb-4"><h2 class="text-xl font-semibold">生成注册码</h2><button onclick="document.getElementById('createModal').classList.add('hidden')"><i data-lucide="x" class="w-5"></i></button></div>
+          <div class="space-y-4">
+            <label class="block text-sm"><span class="font-medium">过期时间</span><select class="mt-1 w-full h-9 rounded-lg border border-line px-3 bg-white"><option>7 天后</option><option>30 天后</option><option>90 天后</option><option>永不过期</option></select></label>
+            <label class="block text-sm"><span class="font-medium">备注（可选）</span><input class="mt-1 w-full h-9 rounded-lg border border-line px-3" placeholder="例如：华东工厂扩容用" /></label>
+          </div>
+          <div class="flex justify-end gap-2 mt-6"><button class="h-9 px-4 rounded-lg border border-line text-sm" onclick="document.getElementById('createModal').classList.add('hidden')">取消</button><button class="h-9 px-4 rounded-lg bg-moss text-white text-sm" onclick="document.getElementById('createModal').classList.add('hidden')">生成</button></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

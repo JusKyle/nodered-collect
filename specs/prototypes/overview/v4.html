@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>原型方向 v4 - 数据密集型</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; letter-spacing: 0; background:#f8f8f6; color:#242424; }
+    th { font-weight: 600; color:#666; }
+  </style>
+</head>
+<body>
+  <div class="min-h-screen">
+    <header class="h-14 bg-white border-b border-[#deded8] px-4 flex items-center justify-between">
+      <div class="flex items-center gap-6"><div class="font-semibold flex items-center gap-2"><i data-lucide="layers-3" class="w-5 text-[#0f766e]"></i>Node-RED Collect</div><nav class="flex gap-1 text-sm"><button class="px-3 py-1.5 rounded bg-[#0f766e] text-white">总览</button><button class="px-3 py-1.5 rounded hover:bg-slate-100">网关</button><button class="px-3 py-1.5 rounded hover:bg-slate-100">实例</button><button class="px-3 py-1.5 rounded hover:bg-slate-100">同步</button><button class="px-3 py-1.5 rounded hover:bg-slate-100">系统配置</button></nav></div>
+      <div class="flex items-center gap-2"><input class="h-8 w-64 rounded border border-[#deded8] px-3 text-sm" placeholder="搜索网关、实例、点位" /><button class="h-8 px-3 rounded bg-[#242424] text-white text-sm">新建</button></div>
+    </header>
+    <main class="p-4 grid grid-cols-[1fr_380px] gap-4">
+      <section>
+        <div class="grid grid-cols-5 gap-2 mb-3">
+          <div class="bg-white border border-[#deded8] rounded p-3"><div class="text-xs text-slate-500">网关</div><div class="text-2xl font-semibold">50</div></div>
+          <div class="bg-white border border-[#deded8] rounded p-3"><div class="text-xs text-slate-500">在线</div><div class="text-2xl font-semibold text-[#0f766e]">42</div></div>
+          <div class="bg-white border border-[#deded8] rounded p-3"><div class="text-xs text-slate-500">实例</div><div class="text-2xl font-semibold">518</div></div>
+          <div class="bg-white border border-[#deded8] rounded p-3"><div class="text-xs text-slate-500">异常</div><div class="text-2xl font-semibold text-[#b45309]">9</div></div>
+          <div class="bg-white border border-[#deded8] rounded p-3"><div class="text-xs text-slate-500">缓存</div><div class="text-2xl font-semibold">1,284</div></div>
+        </div>
+        <div class="bg-white border border-[#deded8] rounded overflow-hidden">
+          <div class="px-4 py-3 border-b border-[#deded8] flex items-center justify-between"><h1 class="font-semibold">网关运行明细</h1><div class="flex gap-2 text-sm"><button class="px-2 py-1 rounded border border-[#deded8]">筛选</button><button class="px-2 py-1 rounded border border-[#deded8]">导出</button><button class="px-2 py-1 rounded bg-[#0f766e] text-white">批量下发</button></div></div>
+          <table class="w-full text-sm">
+            <thead class="bg-[#f3f4f1] text-left"><tr><th class="px-4 py-2">网关</th><th>分组</th><th>CPU</th><th>内存</th><th>设备数</th><th>配置版本</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody class="divide-y divide-[#ededeb]"><tr><td class="px-4 py-3 font-medium">GW-East-Boiler-01</td><td>华东工厂</td><td>32%</td><td>56%</td><td>24</td><td>v19</td><td class="text-[#0f766e]">在线</td><td><button class="text-[#0f766e]">详情</button></td></tr><tr><td class="px-4 py-3 font-medium">GW-West-Line-07</td><td>西区产线</td><td>46%</td><td>62%</td><td>18</td><td>v12</td><td class="text-[#b45309]">待同步</td><td><button class="text-[#0f766e]">下发</button></td></tr><tr><td class="px-4 py-3 font-medium">GW-South-Energy-03</td><td>南站能耗</td><td>-</td><td>-</td><td>9</td><td>v8</td><td class="text-red-600">离线</td><td><button class="text-[#0f766e]">排查</button></td></tr><tr><td class="px-4 py-3 font-medium">GW-North-PLC-12</td><td>北区 PLC</td><td>28%</td><td>49%</td><td>31</td><td>v21</td><td class="text-[#0f766e]">在线</td><td><button class="text-[#0f766e]">详情</button></td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <aside class="space-y-3">
+        <div class="bg-white border border-[#deded8] rounded p-4"><div class="flex justify-between mb-3"><h2 class="font-semibold">采集值趋势</h2><span class="text-xs text-slate-500">PT-204</span></div><div id="chart" class="h-56"></div></div>
+        <div class="bg-white border border-[#deded8] rounded p-4"><h2 class="font-semibold mb-3">同步任务</h2><div class="space-y-2 text-sm"><div class="flex justify-between py-2 border-b border-[#ededeb]"><span>生成 Node-RED Flow</span><span class="text-[#0f766e]">完成</span></div><div class="flex justify-between py-2 border-b border-[#ededeb]"><span>调用 /flows API</span><span class="text-[#b45309]">重试中</span></div><div class="flex justify-between py-2"><span>记录 SyncRecord</span><span class="text-slate-500">等待</span></div></div></div>
+      </aside>
+    </main>
+  </div>
+  <script>
+    lucide.createIcons();
+    echarts.init(document.getElementById('chart')).setOption({grid:{left:30,right:8,top:16,bottom:24},xAxis:{type:'category',data:['10:00','10:05','10:10','10:15','10:20']},yAxis:{type:'value'},series:[{type:'line',smooth:true,data:[0.68,0.7,0.72,0.69,0.74],lineStyle:{color:'#0f766e'},areaStyle:{color:'rgba(15,118,110,.12)'}}]});
+  </script>
+</body>
+</html>

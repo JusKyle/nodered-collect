@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>原型方向 v2 - 暗色调度中心</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { panel:'#17191c', panel2:'#202327', steel:'#9da7b2', acid:'#9bd85d', cyan:'#5ed6d1', warn:'#f2a541' } } } }
+  </script>
+  <style>
+    body { font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; letter-spacing: 0; background:#0e1113; }
+    .scanline { background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px); background-size: 100% 32px; }
+  </style>
+</head>
+<body class="text-slate-100 scanline">
+  <div class="min-h-screen">
+    <header class="h-16 border-b border-white/10 bg-[#101315]/95 px-6 flex items-center justify-between">
+      <div class="flex items-center gap-3"><div class="w-10 h-10 rounded bg-acid text-black grid place-items-center"><i data-lucide="activity"></i></div><div><div class="font-semibold">Node-RED Collect</div><div class="text-xs text-steel">边缘网关实时调度中心</div></div></div>
+      <div class="flex items-center gap-2 text-sm"><span class="px-3 py-1.5 rounded border border-acid/40 text-acid">42 Online</span><button class="px-3 py-1.5 rounded bg-acid text-black font-medium">下发配置</button></div>
+    </header>
+    <div class="grid grid-cols-[76px_1fr_360px] min-h-[calc(100vh-64px)]">
+      <aside class="border-r border-white/10 bg-[#111416] py-4 flex flex-col items-center gap-3">
+        <button class="w-11 h-11 rounded bg-acid text-black grid place-items-center"><i data-lucide="gauge"></i></button>
+        <button class="w-11 h-11 rounded border border-white/10 text-steel grid place-items-center"><i data-lucide="server"></i></button>
+        <button class="w-11 h-11 rounded border border-white/10 text-steel grid place-items-center"><i data-lucide="cpu"></i></button>
+        <button class="w-11 h-11 rounded border border-white/10 text-steel grid place-items-center"><i data-lucide="database"></i></button>
+      </aside>
+      <main class="p-5">
+        <div class="grid grid-cols-4 gap-3 mb-4">
+          <div class="rounded-lg bg-panel border border-white/10 p-4"><div class="text-xs text-steel">心跳正常</div><div class="text-3xl font-semibold mt-3">98.2%</div><div class="text-xs text-acid mt-2">30 秒采样</div></div>
+          <div class="rounded-lg bg-panel border border-white/10 p-4"><div class="text-xs text-steel">采集吞吐</div><div class="text-3xl font-semibold mt-3">12.8k</div><div class="text-xs text-cyan mt-2">点位/分钟</div></div>
+          <div class="rounded-lg bg-panel border border-white/10 p-4"><div class="text-xs text-steel">下发失败</div><div class="text-3xl font-semibold mt-3 text-warn">3</div><div class="text-xs text-steel mt-2">待人工处理</div></div>
+          <div class="rounded-lg bg-panel border border-white/10 p-4"><div class="text-xs text-steel">离线缓存</div><div class="text-3xl font-semibold mt-3">1.2 MB</div><div class="text-xs text-steel mt-2">SQLite 队列</div></div>
+        </div>
+        <section class="rounded-lg bg-panel border border-white/10 p-4 mb-4">
+          <div class="flex items-center justify-between"><h1 class="text-xl font-semibold">全局性能雷达</h1><span class="text-xs text-steel">CPU / 内存 / 磁盘</span></div>
+          <div id="chart" class="h-[320px]"></div>
+        </section>
+        <section class="grid grid-cols-3 gap-3">
+          <div class="rounded-lg bg-panel2 border border-acid/20 p-4"><div class="text-sm text-steel">华东工厂 A 区</div><div class="mt-2 font-semibold">18 网关在线</div><div class="mt-4 h-1.5 bg-white/10 rounded"><div class="h-1.5 bg-acid rounded w-[86%]"></div></div></div>
+          <div class="rounded-lg bg-panel2 border border-white/10 p-4"><div class="text-sm text-steel">西区冷站</div><div class="mt-2 font-semibold">6 网关在线</div><div class="mt-4 h-1.5 bg-white/10 rounded"><div class="h-1.5 bg-cyan rounded w-[64%]"></div></div></div>
+          <div class="rounded-lg bg-panel2 border border-white/10 p-4"><div class="text-sm text-steel">南站能耗</div><div class="mt-2 font-semibold">2 个异常</div><div class="mt-4 h-1.5 bg-white/10 rounded"><div class="h-1.5 bg-warn rounded w-[38%]"></div></div></div>
+        </section>
+      </main>
+      <aside class="border-l border-white/10 bg-[#111416] p-4">
+        <h2 class="font-semibold mb-4">事件流</h2>
+        <div class="space-y-3 text-sm">
+          <div class="rounded-lg border border-acid/20 bg-acid/5 p-3"><div class="text-acid">gateway_status_change</div><p class="text-steel mt-1">东区-锅炉房-01 已上线</p></div>
+          <div class="rounded-lg border border-white/10 p-3"><div class="text-cyan">device_data</div><p class="text-steel mt-1">压力点位 PT-204 更新为 0.72MPa</p></div>
+          <div class="rounded-lg border border-warn/30 bg-warn/5 p-3"><div class="text-warn">sync_failed</div><p class="text-steel mt-1">Node-RED /flows API 超时</p></div>
+          <div class="rounded-lg border border-white/10 p-3"><div class="text-steel">cache_replay</div><p class="text-steel mt-1">设备 D-118 补发 320 条</p></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <script>
+    lucide.createIcons();
+    const chart = echarts.init(document.getElementById('chart'));
+    chart.setOption({ backgroundColor:'transparent', radar:{indicator:[{name:'CPU',max:100},{name:'内存',max:100},{name:'磁盘',max:100},{name:'心跳',max:100},{name:'吞吐',max:100}],axisName:{color:'#9da7b2'},splitLine:{lineStyle:{color:'rgba(255,255,255,.12)'}},splitArea:{areaStyle:{color:['rgba(255,255,255,.02)','rgba(255,255,255,.04)']}},axisLine:{lineStyle:{color:'rgba(255,255,255,.12)'}}}, series:[{type:'radar',data:[{value:[42,58,34,98,76],name:'集群均值',areaStyle:{color:'rgba(155,216,93,.25)'},lineStyle:{color:'#9bd85d'}}]}] });
+  </script>
+</body>
+</html>

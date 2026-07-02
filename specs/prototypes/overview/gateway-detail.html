@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>网关详情 - 原型</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { ink: '#17201a', moss: '#3f6b50', sage: '#eef5ef', line: '#dfe8e1', amber: '#d97706' }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; letter-spacing: 0; }
+    .nav-item.active { background: #eef5ef; color: #2f5a40; }
+    .tab-btn.active { color: #3f6b50; border-bottom: 2px solid #3f6b50; }
+  </style>
+</head>
+<body class="bg-[#f7faf7] text-ink">
+  <div class="min-h-screen grid grid-cols-[248px_1fr]">
+    <aside class="bg-white border-r border-line px-4 py-5">
+      <div class="flex items-center gap-3 px-2 mb-7">
+        <div class="w-9 h-9 rounded-lg bg-moss text-white grid place-items-center"><i data-lucide="network"></i></div>
+        <div><div class="font-semibold text-[15px]">Node-RED Collect</div><div class="text-xs text-slate-500">分布式采集平台</div></div>
+      </div>
+      <nav class="space-y-1 text-sm">
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="layout-dashboard" class="w-4"></i>总览工作台</button>
+        <button class="nav-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg"><i data-lucide="server" class="w-4"></i>边缘网关</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="cpu" class="w-4"></i>设备模型</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="router" class="w-4"></i>设备实例</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="send" class="w-4"></i>配置下发</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="qrcode" class="w-4"></i>注册码</button>
+        <button class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600"><i data-lucide="settings" class="w-4"></i>系统配置</button>
+      </nav>
+    </aside>
+    <main class="p-6">
+      <div class="mb-5">
+        <a href="gateway-list.html" class="text-sm text-slate-500 hover:text-moss flex items-center gap-1"><i data-lucide="arrow-left" class="w-4"></i>返回网关列表</a>
+      </div>
+      <header class="bg-white rounded-lg border border-line p-4 mb-5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-lg bg-sage text-moss grid place-items-center"><i data-lucide="server" class="w-6"></i></div>
+            <div><h1 class="text-2xl font-semibold">GW-华东-锅炉房-01</h1><div class="flex items-center gap-3 mt-1 text-sm text-slate-500"><span>192.168.1.101:1880</span><span>华东工厂</span><span>Node-RED v3.1.0</span></div></div>
+          </div>
+          <div class="flex items-center gap-2"><span class="inline-flex items-center gap-1.5 h-8 px-3 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>在线</span><button class="h-8 px-3 rounded-lg border border-line text-sm">编辑</button><button class="h-8 px-3 rounded-lg bg-moss text-white text-sm">下发配置</button></div>
+        </div>
+      </header>
+      <div class="flex gap-6 border-b border-line mb-5 text-sm">
+        <button class="tab-btn active pb-3 font-medium" onclick="switchTab('overview',this)">概览</button>
+        <button class="tab-btn pb-3 font-medium text-slate-500" onclick="switchTab('devices',this)">设备实例 (24)</button>
+        <button class="tab-btn pb-3 font-medium text-slate-500" onclick="switchTab('sync',this)">下发记录</button>
+        <button class="tab-btn pb-3 font-medium text-slate-500" onclick="switchTab('performance',this)">性能监控</button>
+      </div>
+      <div id="tab-overview">
+        <section class="grid grid-cols-[1.4fr_1fr] gap-4">
+          <div class="space-y-4">
+            <div class="bg-white rounded-lg border border-line p-4"><h2 class="font-semibold mb-3">基本信息</h2><dl class="grid grid-cols-2 gap-y-3 text-sm"><dt class="text-slate-500">网关 ID</dt><dd>gw-ea-boiler-01-a3f2</dd><dt class="text-slate-500">分组</dt><dd>华东工厂</dd><dt class="text-slate-500">Node-RED 地址</dt><dd>http://192.168.1.101:1880</dd><dt class="text-slate-500">注册方式</dt><dd>nodered-plugin 主动注册</dd><dt class="text-slate-500">注册时间</dt><dd>2026-06-15 09:32:18</dd><dt class="text-slate-500">最后心跳</dt><dd>2026-07-02 14:28:03（5 秒前）</dd><dt class="text-slate-500">配置版本</dt><dd>v19</dd><dt class="text-slate-500">缓存开关</dt><dd><span class="text-slate-500">继承系统级（关闭）</span></dd></dl></div>
+            <div class="bg-white rounded-lg border border-line p-4"><h2 class="font-semibold mb-3">设备实例分布</h2><div id="chart-devices" class="h-44"></div></div>
+          </div>
+          <div class="space-y-4">
+            <div class="bg-white rounded-lg border border-line p-4"><h2 class="font-semibold mb-3">最近下发</h2><div class="space-y-3 text-sm"><div class="p-3 rounded-lg bg-sage border border-line"><div class="flex justify-between"><b>下发 v19</b><span class="text-emerald-600">成功</span></div><p class="text-xs text-slate-500 mt-1">2026-07-02 11:20:35 · 24 个实例</p></div><div class="p-3 rounded-lg border border-line"><div class="flex justify-between"><b>下发 v18</b><span class="text-emerald-600">成功</span></div><p class="text-xs text-slate-500 mt-1">2026-07-01 16:45:12 · 22 个实例</p></div><div class="p-3 rounded-lg border border-line"><div class="flex justify-between"><b>下发 v17</b><span class="text-amber">部分失败</span></div><p class="text-xs text-slate-500 mt-1">2026-06-30 09:12:08 · 3 个实例失败</p></div></div></div>
+            <div class="bg-white rounded-lg border border-line p-4"><h2 class="font-semibold mb-3">实时性能</h2><div class="space-y-3 text-sm"><div class="flex items-center justify-between"><span>CPU</span><span class="font-medium">32%</span></div><div class="h-2 rounded bg-sage"><div class="h-2 rounded bg-moss w-[32%]"></div></div><div class="flex items-center justify-between"><span>内存</span><span class="font-medium">56%</span></div><div class="h-2 rounded bg-sage"><div class="h-2 rounded bg-moss w-[56%]"></div></div><div class="flex items-center justify-between"><span>磁盘</span><span class="font-medium">41%</span></div><div class="h-2 rounded bg-sage"><div class="h-2 rounded bg-moss w-[41%]"></div></div></div></div>
+          </div>
+        </section>
+      </div>
+      <div id="tab-devices" class="hidden">
+        <section class="bg-white rounded-lg border border-line">
+          <div class="px-4 py-3 border-b border-line"><input class="h-9 w-64 rounded-lg border border-line px-3 text-sm" placeholder="搜索实例..." /></div>
+          <table class="w-full text-sm"><thead class="text-left text-xs text-slate-500 bg-[#fafcfa]"><tr><th class="px-4 py-3 font-medium">实例名称</th><th class="font-medium">模型</th><th class="font-medium">协议</th><th class="font-medium">点位数量</th><th class="font-medium">状态</th><th class="font-medium">操作</th></tr></thead><tbody class="divide-y divide-line"><tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3 font-medium">Boiler-PT-01</td><td>西门子 S7 温控模板</td><td>S7</td><td>12</td><td><span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>采集正常</span></td><td><a href="#" class="text-moss hover:underline">详情</a></td></tr><tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3 font-medium">Pipe-Temp-02</td><td>通用 Modbus 采集模板</td><td>Modbus TCP</td><td>8</td><td><span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber"></span>待下发</span></td><td><a href="#" class="text-moss hover:underline">详情</a></td></tr><tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3 font-medium">Energy-Meter-01</td><td>能耗监测仪表模板</td><td>Modbus RTU</td><td>6</td><td><span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>采集正常</span></td><td><a href="#" class="text-moss hover:underline">详情</a></td></tr></tbody></table>
+        </section>
+      </div>
+      <div id="tab-sync" class="hidden">
+        <section class="bg-white rounded-lg border border-line">
+          <div class="px-4 py-3 border-b border-line flex items-center justify-between"><span class="text-sm font-medium">下发历史</span><button class="h-8 px-3 rounded-lg bg-moss text-white text-sm">重新下发</button></div>
+          <table class="w-full text-sm"><thead class="text-left text-xs text-slate-500 bg-[#fafcfa]"><tr><th class="px-4 py-3 font-medium">版本</th><th class="font-medium">下发时间</th><th class="font-medium">实例数</th><th class="font-medium">状态</th><th class="font-medium">耗时</th><th class="font-medium">失败原因</th></tr></thead><tbody class="divide-y divide-line"><tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3 font-medium">v19</td><td>2026-07-02 11:20:35</td><td>24</td><td><span class="text-emerald-600">全部成功</span></td><td>3.2s</td><td>-</td></tr><tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3 font-medium">v18</td><td>2026-07-01 16:45:12</td><td>22</td><td><span class="text-amber">部分失败</span></td><td>4.1s</td><td>Pipe-Temp-02: Basic Auth 认证失败</td></tr><tr class="hover:bg-[#fafcfa]"><td class="px-4 py-3 font-medium">v17</td><td>2026-06-30 09:12:08</td><td>20</td><td><span class="text-emerald-600">全部成功</span></td><td>2.8s</td><td>-</td></tr></tbody></table>
+        </section>
+      </div>
+      <div id="tab-performance" class="hidden">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-white rounded-lg border border-line p-4"><div class="flex justify-between mb-3"><h2 class="font-semibold">CPU 使用率</h2><span class="text-xs text-slate-500">近 24 小时</span></div><div id="chart-cpu" class="h-56"></div></div>
+          <div class="bg-white rounded-lg border border-line p-4"><div class="flex justify-between mb-3"><h2 class="font-semibold">内存使用率</h2><span class="text-xs text-slate-500">近 24 小时</span></div><div id="chart-mem" class="h-56"></div></div>
+          <div class="bg-white rounded-lg border border-line p-4"><div class="flex justify-between mb-3"><h2 class="font-semibold">磁盘使用率</h2><span class="text-xs text-slate-500">近 24 小时</span></div><div id="chart-disk" class="h-56"></div></div>
+          <div class="bg-white rounded-lg border border-line p-4"><div class="flex justify-between mb-3"><h2 class="font-semibold">心跳记录</h2><span class="text-xs text-slate-500">近 24 小时</span></div><div id="chart-heartbeat" class="h-56"></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script>
+    lucide.createIcons();
+    function switchTab(name, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.classList.add('text-slate-500'); });
+      btn.classList.add('active'); btn.classList.remove('text-slate-500');
+      ['overview','devices','sync','performance'].forEach(id => document.getElementById('tab-'+id).classList.add('hidden'));
+      document.getElementById('tab-'+name).classList.remove('hidden');
+    }
+    echarts.init(document.getElementById('chart-devices')).setOption({tooltip:{},series:[{type:'pie',radius:['55%','75%'],label:{show:false},data:[{value:18,name:'Modbus',itemStyle:{color:'#3f6b50'}},{value:4,name:'S7',itemStyle:{color:'#d97706'}},{value:2,name:'MQTT',itemStyle:{color:'#10b981'}}]}]});
+    ['chart-cpu','chart-mem','chart-disk','chart-heartbeat'].forEach((id,i) => {
+      const data = [[22,28,36,31,42,37,29,32],[48,51,50,54,58,57,55,56],[34,35,37,39,40,40,41,41],[1,0,0,1,1,1,0,0]];
+      echarts.init(document.getElementById(id)).setOption({grid:{left:34,right:16,top:20,bottom:28},xAxis:{type:'category',data:['00','03','06','09','12','15','18','21']},yAxis:{type:'value',max:i===3?2:100},series:[{type:'line',smooth:true,data:data[i],lineStyle:{color:'#3f6b50'},areaStyle:{color:'rgba(63,107,80,.14)'}}]});
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>原型方向 v5 - 分步任务流</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; letter-spacing: 0; background:#f6f7f9; color:#1f2933; }
+    .step.current { border-color:#7c3f22; background:#fff7ed; }
+  </style>
+</head>
+<body>
+  <div class="min-h-screen grid grid-cols-[260px_1fr]">
+    <aside class="bg-[#27312d] text-white p-5">
+      <div class="flex items-center gap-3 mb-8"><div class="w-10 h-10 rounded-lg bg-[#f3b35b] text-[#27312d] grid place-items-center"><i data-lucide="factory"></i></div><div><div class="font-semibold">采集配置中心</div><div class="text-xs text-white/55">模板到下发的闭环</div></div></div>
+      <div class="space-y-3 text-sm">
+        <div class="step.current rounded-lg border border-white/10 p-3 border-l-[3px] border-l-[#f3b35b]"><div class="font-semibold">1. 定义设备模板</div><div class="text-xs mt-1 text-white/60">点位字段与协议参数</div></div>
+        <div class="rounded-lg border border-white/10 p-3 text-white/70"><div class="font-semibold">2. 创建设备实例</div><div class="text-xs mt-1 text-white/40">继承模板并覆盖点位</div></div>
+        <div class="rounded-lg border border-white/10 p-3 text-white/70"><div class="font-semibold">3. 绑定边缘网关</div><div class="text-xs mt-1 text-white/40">选择目标 Node-RED</div></div>
+        <div class="rounded-lg border border-white/10 p-3 text-white/70"><div class="font-semibold">4. 下发并监控</div><div class="text-xs mt-1 text-white/40">生成 Flow 与追踪状态</div></div>
+      </div>
+    </aside>
+    <main class="p-6">
+      <header class="flex items-center justify-between mb-5"><div><h1 class="text-2xl font-semibold">设备采集配置向导</h1><p class="text-sm text-slate-500 mt-1">从模板、实例、网关到下发结果的端到端流程</p></div><button class="h-9 px-3 rounded bg-[#7c3f22] text-white text-sm flex items-center gap-2"><i data-lucide="save" class="w-4"></i>保存模板</button></header>
+      <section class="grid grid-cols-[1.2fr_.8fr] gap-4">
+        <div class="bg-white rounded-lg border border-[#dde1e6] p-5">
+          <div class="flex items-center justify-between mb-4"><h2 class="font-semibold">模板：西门子 S7 温控柜</h2><span class="text-xs px-2 py-1 rounded bg-[#eef7f2] text-[#2f855a]">版本 v6</span></div>
+          <div class="grid grid-cols-3 gap-3 mb-4 text-sm"><label>协议类型<select class="mt-1 w-full h-9 rounded border border-[#dde1e6] px-2"><option>S7</option><option>Modbus TCP</option></select></label><label>采集周期<input class="mt-1 w-full h-9 rounded border border-[#dde1e6] px-2" value="1000ms" /></label><label>默认缓存<input class="mt-1 w-full h-9 rounded border border-[#dde1e6] px-2" value="继承系统级" /></label></div>
+          <table class="w-full text-sm"><thead class="text-left text-xs text-slate-500 bg-[#f8fafc]"><tr><th class="px-3 py-2">点位ID</th><th>地址</th><th>数据类型</th><th>单位</th><th>覆盖</th></tr></thead><tbody class="divide-y divide-[#edf0f2]"><tr><td class="px-3 py-3 font-medium">temp_main</td><td>DB1.DBW0</td><td>INT16</td><td>℃</td><td><button class="text-[#7c3f22]">编辑</button></td></tr><tr><td class="px-3 py-3 font-medium">pressure_in</td><td>DB1.DBD4</td><td>FLOAT</td><td>MPa</td><td><button class="text-[#7c3f22]">编辑</button></td></tr><tr><td class="px-3 py-3 font-medium">run_state</td><td>DB1.DBX10.0</td><td>BOOL</td><td>-</td><td><button class="text-[#7c3f22]">编辑</button></td></tr></tbody></table>
+        </div>
+        <div class="space-y-4">
+          <div class="bg-white rounded-lg border border-[#dde1e6] p-4"><h2 class="font-semibold mb-3">配置预检</h2><div class="space-y-2 text-sm"><div class="flex justify-between"><span>模板字段完整性</span><span class="text-[#2f855a]">通过</span></div><div class="flex justify-between"><span>目标网关可用</span><span class="text-[#2f855a]">3 个可用</span></div><div class="flex justify-between"><span>版本差异</span><span class="text-[#b7791f]">需下发</span></div></div></div>
+          <div class="bg-white rounded-lg border border-[#dde1e6] p-4"><h2 class="font-semibold mb-3">下发状态统计</h2><div id="chart" class="h-52"></div></div>
+          <div class="bg-[#27312d] text-white rounded-lg p-4"><div class="text-sm text-white/60">下一步</div><div class="mt-1 font-semibold">从模板批量创建设备实例</div><button class="mt-4 h-9 px-3 rounded bg-[#f3b35b] text-[#27312d] text-sm font-medium">继续配置</button></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    lucide.createIcons();
+    echarts.init(document.getElementById('chart')).setOption({tooltip:{},series:[{type:'pie',radius:['55%','78%'],avoidLabelOverlap:true,label:{formatter:'{b}\n{d}%'},data:[{name:'成功',value:87,itemStyle:{color:'#2f855a'}},{name:'排队',value:10,itemStyle:{color:'#f3b35b'}},{name:'失败',value:3,itemStyle:{color:'#dc2626'}}]}]});
+  </script>
+</body>
+</html>
